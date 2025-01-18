@@ -95,10 +95,14 @@ pub fn main() anyerror!void {
 
     // Initialization
     //--------------------------------------------------------------------------------------
-    const screenWidth = 800;
-    const screenHeight = 600;
+    const windowWidth = 800;
+    const windowHeight = 600;
+    const leftMargin = 20;
+    const topMargin = 20;
+    const rightMargin = 20;
+    const bottomMargin = 20;
 
-    rl.initWindow(screenWidth, screenHeight, "Grid search in Zig");
+    rl.initWindow(windowWidth, windowHeight, "Grid search in Zig");
     defer rl.closeWindow(); // Close window and OpenGL context
 
     rl.setTargetFPS(60);
@@ -118,7 +122,32 @@ pub fn main() anyerror!void {
 
         rl.clearBackground(rl.Color.light_gray);
 
-        rl.drawText("ZigPath", 20, 20, 18, rl.Color.black);
+        rl.drawText("ZigPath", leftMargin, topMargin, 18, rl.Color.black);
+
+        const mapStartY = topMargin + 30;
+        const mapEndY = windowHeight - bottomMargin;
+
+        const mapStartX = leftMargin;
+        const mapEndX = windowWidth - rightMargin;
+
+        const mapGridWidth = (mapEndX - mapStartX + 1) / maze[0].len;
+        const mapGridHeight = (mapEndY - mapStartY) / maze.len;
+
+        for (maze, 0..) |row, rowIdx| {
+            for (row, 0..) |cell, colIdx| {
+                const x: i32 = @intCast(mapStartX + colIdx * mapGridWidth);
+                const y: i32 = @intCast(mapStartY + rowIdx * mapGridHeight);
+                const width: i32 = @intCast(mapGridWidth);
+                const height: i32 = @intCast(mapGridHeight);
+
+                if (cell) {
+                    rl.drawRectangle(x, y, width, height, rl.Color.black);
+                } else {
+                    rl.drawRectangle(x, y, width, height, rl.Color.white);
+                }
+            }
+        }
+
         //----------------------------------------------------------------------------------
     }
 }
