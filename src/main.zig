@@ -81,7 +81,7 @@ pub fn main() anyerror!void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len < 6) {
-        std.debug.print("Usage: <file_path> <start_row> <start_col> <end_row> <end_col>\n", .{});
+        std.debug.print("Usage: {any} <file_path> <start_row> <start_col> <end_row> <end_col>\n", .{args[0]});
         return error.InvalidArguments;
     }
 
@@ -95,7 +95,7 @@ pub fn main() anyerror!void {
     defer freeGrid(allocator, maze);
 
     const stdout = std.io.getStdOut().writer();
-    try stdout.print("Poop {} ns\n", .{maze.len});
+    try stdout.print("Maze loaded with {} rows\n", .{maze.len});
 
     // Initialization
     //--------------------------------------------------------------------------------------
@@ -134,24 +134,37 @@ pub fn main() anyerror!void {
         const mapStartX = leftMargin;
         const mapEndX = windowWidth - rightMargin;
 
-        const mapGridWidth = (mapEndX - mapStartX + 1) / maze[0].len;
-        const mapGridHeight = (mapEndY - mapStartY) / maze.len;
+        // Calculate the maximum possible square size for the grid
+        const availableWidth = mapEndX - mapStartX;
+        const availableHeight = mapEndY - mapStartY;
+
+        const maxCellSize = @min(availableWidth / maze[0].len, availableHeight / maze.len);
+
+        // Center the grid within the available space
+        const gridWidth = maxCellSize * maze[0].len;
+        const gridHeight = maxCellSize * maze.len;
+
+        const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
+        const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
 
         for (maze, 0..) |row, rowIdx| {
             for (row, 0..) |cell, colIdx| {
-                const x: i32 = @intCast(mapStartX + colIdx * mapGridWidth);
-                const y: i32 = @intCast(mapStartY + rowIdx * mapGridHeight);
-                const width: i32 = @intCast(mapGridWidth);
-                const height: i32 = @intCast(mapGridHeight);
+                const x: i32 = @intCast(gridStartX + colIdx * maxCellSize);
+                const y: i32 = @intCast(gridStartY + rowIdx * maxCellSize);
+                const width: i32 = @intCast(maxCellSize);
+                const height: i32 = @intCast(maxCellSize);
 
+                if (cell) {
+                    rl.drawRectangle(x, y, width, height, rl.Color.dark_gray);
+                } else {
+                    rl.drawRectangle(x, y, width, height, rl.Color.white);
+                }
+
+                // Highlight start and end positions
                 if (rowIdx == start_row and colIdx == start_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.green);
                 } else if (rowIdx == end_row and colIdx == end_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.red);
-                } else if (cell) {
-                    rl.drawRectangle(x, y, width, height, rl.Color.black);
-                } else {
-                    rl.drawRectangle(x, y, width, height, rl.Color.white);
                 }
             }
         }
