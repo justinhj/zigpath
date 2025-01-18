@@ -19,7 +19,6 @@ fn loadFileToString(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
 fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]bool {
     // Split the input into lines
     var lines = std.mem.split(u8, input, "\n");
-
     // Count the number of lines and the row length
     var row_count: usize = 0;
     var col_count: usize = 0;
@@ -31,8 +30,6 @@ fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]b
             } else if (col_count != line.len) {
                 return MazeErrorSet.InvalidMaze;
             }
-        } else {
-            return MazeErrorSet.InvalidMaze;
         }
     }
 
@@ -91,7 +88,7 @@ pub fn main() anyerror!void {
     const file_path = args[1];
 
     const maze = try loadMaze(allocator, file_path);
-    defer allocator.free(maze);
+    defer freeGrid(allocator, maze);
 
     const stdout = std.io.getStdOut().writer();
     try stdout.print("Poop {} ns\n", .{maze.len});
