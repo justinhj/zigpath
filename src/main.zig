@@ -80,12 +80,16 @@ pub fn main() anyerror!void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    if (args.len < 2) {
-        std.debug.print("Usage: {any} <file_path>\n", .{args[0]});
+    if (args.len < 6) {
+        std.debug.print("Usage: <file_path> <start_row> <start_col> <end_row> <end_col>\n", .{});
         return error.InvalidArguments;
     }
 
     const file_path = args[1];
+    const start_row = try std.fmt.parseInt(usize, args[2], 10);
+    const start_col = try std.fmt.parseInt(usize, args[3], 10);
+    const end_row = try std.fmt.parseInt(usize, args[4], 10);
+    const end_col = try std.fmt.parseInt(usize, args[5], 10);
 
     const maze = try loadMaze(allocator, file_path);
     defer freeGrid(allocator, maze);
@@ -140,7 +144,11 @@ pub fn main() anyerror!void {
                 const width: i32 = @intCast(mapGridWidth);
                 const height: i32 = @intCast(mapGridHeight);
 
-                if (cell) {
+                if (rowIdx == start_row and colIdx == start_col) {
+                    rl.drawRectangle(x, y, width, height, rl.Color.green);
+                } else if (rowIdx == end_row and colIdx == end_col) {
+                    rl.drawRectangle(x, y, width, height, rl.Color.red);
+                } else if (cell) {
                     rl.drawRectangle(x, y, width, height, rl.Color.black);
                 } else {
                     rl.drawRectangle(x, y, width, height, rl.Color.white);
