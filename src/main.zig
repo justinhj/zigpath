@@ -185,6 +185,7 @@ pub fn main() anyerror!void {
     defer rl.closeWindow(); // Close window and OpenGL context
 
     rl.setTargetFPS(60);
+
     //--------------------------------------------------------------------------------------
 
     // Method
@@ -209,22 +210,30 @@ pub fn main() anyerror!void {
 
     try candidates.append(current);
 
+    const skipFrames = 3;
+    var frameCounter: usize = 0;
+
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Update
 
         // Expand the path search if its not over already
-        if (!current.equals(target)) {
-            current = candidates.pop();
-            visited[@intCast(current.row)][@intCast(current.col)] = Visit.Visited;
-            if (current.equals(target)) {
-                break;
-            }
+        if (frameCounter >= skipFrames) {
+            frameCounter = 0;
 
-            const emptyNeighbors = try getEmptyNeighbors(allocator, visited, current);
-            for (emptyNeighbors) |neighbor| {
-                try candidates.append(neighbor);
+            if (!current.equals(target)) {
+                current = candidates.pop();
+                visited[@intCast(current.row)][@intCast(current.col)] = Visit.Visited;
+                if (!current.equals(target)) {
+                    const emptyNeighbors = try getEmptyNeighbors(allocator, visited, current);
+                    defer allocator.free(emptyNeighbors);
+                    for (emptyNeighbors) |neighbor| {
+                        try candidates.append(neighbor);
+                    }
+                }
             }
+        } else {
+            frameCounter += 1;
         }
 
         // Draw
@@ -262,17 +271,17 @@ pub fn main() anyerror!void {
                 const width: i32 = @intCast(maxCellSize);
                 const height: i32 = @intCast(maxCellSize);
 
-                switch (cell) {
-                    Visit.Empty => rl.drawRectangle(x, y, width, height, rl.Color.white),
-                    Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.light_gray),
-                    Visit.Blocked => rl.drawRectangle(x, y, width, height, rl.Color.dark_gray),
-                }
-
                 // Highlight start and end positions
                 if (rowIdx == start_row and colIdx == start_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.green);
                 } else if (rowIdx == end_row and colIdx == end_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.red);
+                } else {
+                    switch (cell) {
+                        Visit.Empty => rl.drawRectangle(x, y, width, height, rl.Color.white),
+                        Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.light_gray),
+                        Visit.Blocked => rl.drawRectangle(x, y, width, height, rl.Color.dark_gray),
+                    }
                 }
             }
         }
