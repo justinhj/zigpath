@@ -71,6 +71,81 @@ pub fn loadMaze(allocator: std.mem.Allocator, file_path: []const u8) ![][]bool {
     return grid;
 }
 
+const Coord = struct {
+    row: i32,
+    col: i32,
+    pub fn equals(self: Coord, other: Coord) bool {
+        return self.row == other.row and self.col == other.col;
+    }
+};
+
+const Visit = enum {
+    Empty,
+    Visited,
+    Blocked,
+};
+
+pub fn makeVisited(allocator: std.mem.Allocator, maze: []const []const bool) ![][]Visit {
+    // Allocate the outer slice for rows
+    var visited = try allocator.alloc([]Visit, maze.len);
+    errdefer allocator.free(visited);
+
+    // Allocate each row and initialize it
+    for (visited, 0..) |*row, rowIdx| {
+        row.* = try allocator.alloc(Visit, maze[rowIdx].len);
+        errdefer {
+            // Free all previously allocated rows if an error occurs
+            for (visited[0..rowIdx]) |r| {
+                allocator.free(r);
+            }
+            allocator.free(visited);
+        }
+    }
+
+    // Populate the `visited` array based on the `maze`
+    for (maze, 0..) |row, rowIdx| {
+        for (row, 0..) |cell, colIdx| {
+            visited[rowIdx][colIdx] = if (cell) Visit.Blocked else Visit.Empty;
+        }
+    }
+
+    return visited;
+}
+
+pub fn getEmptyNeighbors(allocator: std.mem.Allocator, visited: []const []const Visit, current: Coord) ![]Coord {
+    var neighbors = std.ArrayList(Coord).init(allocator);
+    errdefer neighbors.deinit(); // Ensure cleanup on error
+
+    // Check the cell above
+    if (current.row > 0 and visited[@intCast(current.row - 1)][@intCast(current.col)] == Visit.Empty) {
+        try neighbors.append(Coord{ .row = current.row - 1, .col = current.col });
+    }
+
+    // Check the cell below
+    if (current.row + 1 < visited.len and visited[@intCast(current.row + 1)][@intCast(current.col)] == Visit.Empty) {
+        try neighbors.append(Coord{ .row = current.row + 1, .col = current.col });
+    }
+
+    // Check the cell to the left
+    if (current.col > 0 and visited[@intCast(current.row)][@intCast(current.col - 1)] == Visit.Empty) {
+        try neighbors.append(Coord{ .row = current.row, .col = current.col - 1 });
+    }
+
+    // Check the cell to the right
+    if (current.col + 1 < visited[0].len and visited[@intCast(current.row)][@intCast(current.col + 1)] == Visit.Empty) {
+        try neighbors.append(Coord{ .row = current.row, .col = current.col + 1 });
+    }
+
+    return neighbors.toOwnedSlice();
+}
+
+pub fn freeVisited(allocator: std.mem.Allocator, visited: [][]Visit) void {
+    for (visited) |row| {
+        allocator.free(row);
+    }
+    allocator.free(visited);
+}
+
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -112,12 +187,45 @@ pub fn main() anyerror!void {
     rl.setTargetFPS(60);
     //--------------------------------------------------------------------------------------
 
+    // Method
+    // current_row and current_col set to start position
+    // while current_row and current_col are not equal to end position
+    //   expand empty neighbors
+    //   add empty neighbors to stack
+    //   pop stack as current row and column
+    // Data
+    //   Need a struct to hold row and col
+    //   Stack of coord
+    //   array of visited data
+
+    var current = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
+    const target = Coord{ .row = @intCast(end_row), .col = @intCast(end_col) };
+
+    var visited = try makeVisited(allocator, maze);
+    defer freeVisited(allocator, visited);
+
+    var candidates = std.ArrayList(Coord).init(allocator);
+    defer candidates.deinit();
+
+    try candidates.append(current);
+
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Update
-        //----------------------------------------------------------------------------------
-        // TODO: Update your variables here
-        //----------------------------------------------------------------------------------
+
+        // Expand the path search if its not over already
+        if (!current.equals(target)) {
+            current = candidates.pop();
+            visited[@intCast(current.row)][@intCast(current.col)] = Visit.Visited;
+            if (current.equals(target)) {
+                break;
+            }
+
+            const emptyNeighbors = try getEmptyNeighbors(allocator, visited, current);
+            for (emptyNeighbors) |neighbor| {
+                try candidates.append(neighbor);
+            }
+        }
 
         // Draw
         //----------------------------------------------------------------------------------
@@ -147,17 +255,17 @@ pub fn main() anyerror!void {
         const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
         const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
 
-        for (maze, 0..) |row, rowIdx| {
+        for (visited, 0..) |row, rowIdx| {
             for (row, 0..) |cell, colIdx| {
                 const x: i32 = @intCast(gridStartX + colIdx * maxCellSize);
                 const y: i32 = @intCast(gridStartY + rowIdx * maxCellSize);
                 const width: i32 = @intCast(maxCellSize);
                 const height: i32 = @intCast(maxCellSize);
 
-                if (cell) {
-                    rl.drawRectangle(x, y, width, height, rl.Color.dark_gray);
-                } else {
-                    rl.drawRectangle(x, y, width, height, rl.Color.white);
+                switch (cell) {
+                    Visit.Empty => rl.drawRectangle(x, y, width, height, rl.Color.white),
+                    Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.light_gray),
+                    Visit.Blocked => rl.drawRectangle(x, y, width, height, rl.Color.dark_gray),
                 }
 
                 // Highlight start and end positions
