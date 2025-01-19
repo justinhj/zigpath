@@ -174,8 +174,8 @@ pub fn main() anyerror!void {
 
     // Initialization
     //--------------------------------------------------------------------------------------
-    const windowWidth = 800;
-    const windowHeight = 600;
+    const windowWidth = 1200;
+    const windowHeight = 900;
     const leftMargin = 20;
     const topMargin = 20;
     const rightMargin = 20;
@@ -210,7 +210,7 @@ pub fn main() anyerror!void {
 
     try candidates.append(current);
 
-    const skipFrames = 3;
+    const skipFrames = 1;
     var frameCounter: usize = 0;
 
     // Main game loop
