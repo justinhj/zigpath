@@ -192,7 +192,12 @@ pub fn main() anyerror!void {
     // current_row and current_col set to start position
     // while current_row and current_col are not equal to end position
     //   expand empty neighbors
+    //     this is done up down left then right and appended
+    //     so candidates will be in right, left, down and up
     //   add empty neighbors to stack
+    //     they are added in order but to the stack so we should expect the priority
+    //     to be in the reverse order when popped
+    //     ie up down left right
     //   pop stack as current row and column
     // Data
     //   Need a struct to hold row and col
@@ -210,7 +215,7 @@ pub fn main() anyerror!void {
 
     try candidates.append(current);
 
-    const skipFrames = 1;
+    const skipFrames = 0;
     var frameCounter: usize = 0;
 
     // Main game loop
