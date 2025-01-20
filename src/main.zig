@@ -223,11 +223,11 @@ pub fn main() anyerror!void {
 
             if (!current.equals(target)) {
                 current = candidates.pop();
-                visited[@intCast(current.row)][@intCast(current.col)] = Visit.Visited;
                 if (!current.equals(target)) {
                     const emptyNeighbors = try getEmptyNeighbors(allocator, visited, current);
                     defer allocator.free(emptyNeighbors);
                     for (emptyNeighbors) |neighbor| {
+                        visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Visited;
                         try candidates.append(neighbor);
                     }
                 }
@@ -272,7 +272,9 @@ pub fn main() anyerror!void {
                 const height: i32 = @intCast(maxCellSize);
 
                 // Highlight start and end positions
-                if (rowIdx == start_row and colIdx == start_col) {
+                if (rowIdx == current.row and colIdx == current.col) {
+                    rl.drawRectangle(x, y, width, height, rl.Color.yellow);
+                } else if (rowIdx == start_row and colIdx == start_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.green);
                 } else if (rowIdx == end_row and colIdx == end_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.red);
