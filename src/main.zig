@@ -229,6 +229,7 @@ pub fn main() anyerror!void {
                     const emptyNeighbors = try getEmptyNeighbors(allocator, visited, c);
                     defer allocator.free(emptyNeighbors);
                     for (emptyNeighbors) |neighbor| {
+                        visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Visited;
                         try candidates.enqueue(neighbor);
                     }
                 }
@@ -237,12 +238,16 @@ pub fn main() anyerror!void {
 
         // Draw
         //----------------------------------------------------------------------------------
+        const frameTime = rl.getFrameTime();
+
         rl.beginDrawing();
         defer rl.endDrawing();
 
         rl.clearBackground(rl.Color.light_gray);
 
-        rl.drawText("ZigPath", leftMargin, topMargin, 18, rl.Color.black);
+        // Display the frame time
+        const frameTimeText = rl.textFormat("ZigPath. Render time: %.3f ms", .{frameTime * 1000});
+        rl.drawText(frameTimeText, leftMargin, rightMargin, 18, rl.Color.black);
 
         const mapStartY = topMargin + 30;
         const mapEndY = windowHeight - bottomMargin;
@@ -271,7 +276,9 @@ pub fn main() anyerror!void {
                 const height: i32 = @intCast(maxCellSize);
 
                 // Highlight start and end positions
-                if (rowIdx == start_row and colIdx == start_col) {
+                if (current != null and rowIdx == current.?.row and colIdx == current.?.col) {
+                    rl.drawRectangle(x, y, width, height, rl.Color.yellow);
+                } else if (rowIdx == start_row and colIdx == start_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.green);
                 } else if (rowIdx == end_row and colIdx == end_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.red);
