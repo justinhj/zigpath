@@ -18,6 +18,16 @@ pub fn Queue(comptime Child: type) type {
                 .end = null,
             };
         }
+        pub fn deinit(this: *This) void {
+            var current = this.start;
+            while (current) |node| {
+                const next = node.next;
+                this.gpa.destroy(node);
+                current = next;
+            }
+            this.start = null;
+            this.end = null;
+        }
         pub fn enqueue(this: *This, value: Child) !void {
             const node = try this.gpa.create(Node);
             node.* = .{ .data = value, .next = null };

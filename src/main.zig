@@ -1,5 +1,6 @@
 const rl = @import("raylib");
 const std = @import("std");
+const queue = @import("queue");
 
 const MazeErrorSet = error{
     InvalidMaze,
@@ -204,41 +205,34 @@ pub fn main() anyerror!void {
     //   Stack of coord
     //   array of visited data
 
-    var current = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
+    var current: ?Coord = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
     const target = Coord{ .row = @intCast(end_row), .col = @intCast(end_col) };
 
     var visited = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
 
-    var candidates = std.ArrayList(Coord).init(allocator);
+    var candidates = queue.Queue(Coord).init(allocator);
     defer candidates.deinit();
 
-    try candidates.append(current);
-
-    const skipFrames = 0;
-    var frameCounter: usize = 0;
+    try candidates.enqueue(current.?);
 
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Update
 
         // Expand the path search if its not over already
-        if (frameCounter >= skipFrames) {
-            frameCounter = 0;
-
-            if (!current.equals(target)) {
-                current = candidates.pop();
-                visited[@intCast(current.row)][@intCast(current.col)] = Visit.Visited;
-                if (!current.equals(target)) {
-                    const emptyNeighbors = try getEmptyNeighbors(allocator, visited, current);
+        if (!current.?.equals(target)) {
+            current = candidates.dequeue();
+            if (current) |c| {
+                visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
+                if (!c.equals(target)) {
+                    const emptyNeighbors = try getEmptyNeighbors(allocator, visited, c);
                     defer allocator.free(emptyNeighbors);
                     for (emptyNeighbors) |neighbor| {
-                        try candidates.append(neighbor);
+                        try candidates.enqueue(neighbor);
                     }
                 }
             }
-        } else {
-            frameCounter += 1;
         }
 
         // Draw
