@@ -81,9 +81,10 @@ const Coord = struct {
 };
 
 const Visit = enum {
-    Empty,
-    Visited,
-    Blocked,
+    Empty, // Unvisited and unimpeaded
+    Visited, // Checked for goal
+    Candidate, // Added to consider later
+    Blocked, // Wall
 };
 
 pub fn makeVisited(allocator: std.mem.Allocator, maze: []const []const bool) ![][]Visit {
@@ -147,6 +148,21 @@ pub fn freeVisited(allocator: std.mem.Allocator, visited: [][]Visit) void {
     allocator.free(visited);
 }
 
+const SearchType = enum {
+    DepthFirst,
+    BreadthFirst,
+};
+
+pub fn parseSearchType(search_type: []const u8) !SearchType {
+    if (std.mem.eql(u8, search_type, "depthfirst")) {
+        return SearchType.DepthFirst;
+    } else if (std.mem.eql(u8, search_type, "breadthfirst")) {
+        return SearchType.BreadthFirst;
+    } else {
+        return error.InvalidArguments;
+    }
+}
+
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -156,8 +172,8 @@ pub fn main() anyerror!void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    if (args.len < 6) {
-        std.debug.print("Usage: {any} <file_path> <start_row> <start_col> <end_row> <end_col>\n", .{args[0]});
+    if (args.len < 7) {
+        std.debug.print("Usage: {any} <file_path> <start_row> <start_col> <end_row> <end_col> <search_type (depthfirst, breadthfirst)>\n", .{args[0]});
         return error.InvalidArguments;
     }
 
@@ -166,6 +182,7 @@ pub fn main() anyerror!void {
     const start_col = try std.fmt.parseInt(usize, args[3], 10);
     const end_row = try std.fmt.parseInt(usize, args[4], 10);
     const end_col = try std.fmt.parseInt(usize, args[5], 10);
+    const searchType = try parseSearchType(args[6]);
 
     const maze = try loadMaze(allocator, file_path);
     defer freeGrid(allocator, maze);
@@ -246,7 +263,12 @@ pub fn main() anyerror!void {
         rl.clearBackground(rl.Color.light_gray);
 
         // Display the frame time
-        const frameTimeText = rl.textFormat("ZigPath. Render time: %.3f ms", .{frameTime * 1000});
+        const searchTypeText: [*:0]const u8 = switch (searchType) {
+            SearchType.DepthFirst => "Depth First",
+            SearchType.BreadthFirst => "Breadth First",
+        };
+        const textPtr = std.mem.span(searchTypeText);
+        const frameTimeText = rl.textFormat("ZigPath - Search type %s Render time: %.3f ms", .{ textPtr.ptr, frameTime * 1000 });
         rl.drawText(frameTimeText, leftMargin, rightMargin, 18, rl.Color.black);
 
         const mapStartY = topMargin + 30;
@@ -286,6 +308,7 @@ pub fn main() anyerror!void {
                     switch (cell) {
                         Visit.Empty => rl.drawRectangle(x, y, width, height, rl.Color.white),
                         Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.light_gray),
+                        Visit.Candidate => rl.drawRectangle(x, y, width, height, rl.Color.light_gray),
                         Visit.Blocked => rl.drawRectangle(x, y, width, height, rl.Color.dark_gray),
                     }
                 }
