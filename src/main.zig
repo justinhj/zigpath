@@ -228,7 +228,7 @@ pub fn main() anyerror!void {
     var visited = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
 
-    var candidates = queue.Queue(Coord).init(allocator);
+    var candidates = try queue.Queue(Coord).init(allocator, maze.len * maze[0].len);
     defer candidates.deinit();
 
     try candidates.enqueue(current.?);
