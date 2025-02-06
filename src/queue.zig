@@ -1,6 +1,5 @@
 const std = @import("std");
 const maxInt = std.math.maxInt(usize);
-const ArrayList = std.ArrayList;
 
 const QueueError = error{
     OutOfMemory,
@@ -14,14 +13,17 @@ pub fn Queue(comptime Child: type) type {
         end: usize,
         items: []Child,
 
-        pub fn init(gpa: std.mem.Allocator, capacity: usize) QueueError!This {
-            const items = try gpa.alloc(Child, capacity);
+        pub fn init(gpa: std.mem.Allocator, initialCapacity: usize) QueueError!This {
+            const items = gpa.alloc(Child, initialCapacity) catch return QueueError.OutOfMemory;
             return This{
                 .gpa = gpa,
                 .start = maxInt,
                 .end = maxInt,
                 .items = items,
             };
+        }
+        pub fn capacity(this: *This) usize {
+            return this.items.len;
         }
         pub fn deinit(this: *This) void {
             this.start = maxInt;
@@ -36,7 +38,28 @@ pub fn Queue(comptime Child: type) type {
             } else {
                 const newEnd = (this.end + 1) % this.items.len;
                 if (newEnd == this.start) {
-                    return QueueError.OutOfMemory;
+                    const newCapacity = this.items.len * 2;
+                    const newItems = this.gpa.alloc(Child, newCapacity) catch return QueueError.OutOfMemory;
+
+                    var i: usize = 0;
+                    var current = this.start;
+                    while (current != this.end) {
+                        newItems[i] = this.items[current];
+                        current = (current + 1) % this.items.len;
+                        i += 1;
+                    }
+                    newItems[i] = this.items[this.end];
+
+                    this.gpa.free(this.items);
+
+                    // Update the queue state
+                    this.items = newItems;
+                    this.start = 0;
+                    this.end = i;
+
+                    // Enqueue the new value
+                    this.end = (this.end + 1) % this.items.len;
+                    this.items[this.end] = value;
                 } else {
                     this.end = newEnd;
                     this.items[this.end] = value;
@@ -63,8 +86,9 @@ pub fn Queue(comptime Child: type) type {
 
 const testing = std.testing;
 
-test "queue" {
-    var int_queue = try Queue(i32).init(testing.allocator, 7);
+test "basic queue operations" {
+    var int_queue = try Queue(i32).init(testing.allocator, 10);
+    defer int_queue.deinit();
 
     try int_queue.enqueue(25);
     try int_queue.enqueue(50);
@@ -76,10 +100,52 @@ test "queue" {
     try testing.expectEqual(75, int_queue.dequeue());
     try testing.expectEqual(100, int_queue.dequeue());
     try testing.expectEqual(null, int_queue.dequeue());
+}
 
-    try int_queue.enqueue(5);
-    try testing.expectEqual(5, int_queue.dequeue());
+test "empty queue handling" {
+    var int_queue = try Queue([]const u8).init(testing.allocator, 10);
+    defer int_queue.deinit();
+
     try testing.expectEqual(null, int_queue.dequeue());
 
-    int_queue.deinit();
+    try int_queue.enqueue("a");
+    try testing.expectEqualStrings("a", int_queue.dequeue().?);
+
+    try testing.expectEqual(null, int_queue.dequeue());
+}
+
+test "Expanding capacity" {
+    var int_queue = try Queue(f32).init(testing.allocator, 4);
+    defer int_queue.deinit();
+
+    try int_queue.enqueue(1.0);
+    try int_queue.enqueue(1.0);
+    try int_queue.enqueue(1.0);
+    try int_queue.enqueue(1.0);
+    try testing.expectEqual(4, int_queue.capacity());
+
+    try int_queue.enqueue(1.0);
+    try testing.expectEqual(8, int_queue.capacity());
+    try int_queue.enqueue(1.0);
+    try int_queue.enqueue(1.0);
+    try int_queue.enqueue(1.0);
+
+    try int_queue.enqueue(1.0);
+    try testing.expectEqual(16, int_queue.capacity());
+
+    _ = int_queue.dequeue();
+    _ = int_queue.dequeue();
+    _ = int_queue.dequeue();
+    _ = int_queue.dequeue();
+    _ = int_queue.dequeue();
+
+    try testing.expectEqual(16, int_queue.capacity());
+
+    _ = int_queue.dequeue();
+    _ = int_queue.dequeue();
+    _ = int_queue.dequeue();
+    _ = int_queue.dequeue();
+    _ = int_queue.dequeue();
+
+    try testing.expectEqual(16, int_queue.capacity());
 }
