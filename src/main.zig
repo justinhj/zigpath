@@ -318,3 +318,8 @@ pub fn main() anyerror!void {
         //----------------------------------------------------------------------------------
     }
 }
+
+test "test something" {
+    const test1 = "a string ending with poop";
+    try std.testing.expectStringEndsWith(test1, "poop");
+}

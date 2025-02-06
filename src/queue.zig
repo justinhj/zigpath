@@ -1,69 +1,58 @@
 const std = @import("std");
+const maxInt = std.math.maxInt(usize);
+const ArrayList = std.ArrayList;
 
 pub fn Queue(comptime Child: type) type {
     return struct {
         const This = @This();
-        const Node = struct {
-            data: Child,
-            next: ?*Node,
-        };
         gpa: std.mem.Allocator,
-        start: ?*Node,
-        end: ?*Node,
+        start: usize,
+        end: usize,
+        items: []Child,
 
-        pub fn init(gpa: std.mem.Allocator) This {
+        pub fn init(gpa: std.mem.Allocator, capacity: usize) !This {
+            const items = try gpa.alloc(Child, capacity);
             return This{
                 .gpa = gpa,
-                .start = null,
-                .end = null,
+                .start = maxInt,
+                .end = maxInt,
+                .items = items,
             };
         }
         pub fn deinit(this: *This) void {
-            var current = this.start;
-            while (current) |node| {
-                const next = node.next;
-                this.gpa.destroy(node);
-                current = next;
-            }
-            this.start = null;
-            this.end = null;
+            this.start = maxInt;
+            this.end = maxInt;
+            this.gpa.free(this.items);
         }
         pub fn enqueue(this: *This, value: Child) !void {
-            const node = try this.gpa.create(Node);
-            node.* = .{ .data = value, .next = null };
-            if (this.end) |end| end.next = node //
-            else this.start = node;
-            this.end = node;
+            _ = this;
+            _ = value;
+            return {};
         }
         pub fn dequeue(this: *This) ?Child {
-            const start = this.start orelse return null;
-            defer this.gpa.destroy(start);
-            if (start.next) |next|
-                this.start = next
-            else {
-                this.start = null;
-                this.end = null;
-            }
-            return start.data;
+            _ = this;
+            return null;
         }
     };
 }
 
+const testing = std.testing;
+
 test "queue" {
-    var int_queue = Queue(i32).init(std.testing.allocator);
+    var int_queue = try Queue(i32).init(testing.allocator, 7);
 
     try int_queue.enqueue(25);
     try int_queue.enqueue(50);
     try int_queue.enqueue(75);
     try int_queue.enqueue(100);
 
-    try std.testing.expectEqual(int_queue.dequeue(), 25);
-    try std.testing.expectEqual(int_queue.dequeue(), 50);
-    try std.testing.expectEqual(int_queue.dequeue(), 75);
-    try std.testing.expectEqual(int_queue.dequeue(), 100);
-    try std.testing.expectEqual(int_queue.dequeue(), null);
+    try testing.expectEqual(25, int_queue.dequeue());
+    try testing.expectEqual(50, int_queue.dequeue());
+    try testing.expectEqual(75, int_queue.dequeue());
+    try testing.expectEqual(100, int_queue.dequeue());
+    try testing.expectEqual(null, int_queue.dequeue());
 
     try int_queue.enqueue(5);
-    try std.testing.expectEqual(int_queue.dequeue(), 5);
-    try std.testing.expectEqual(int_queue.dequeue(), null);
+    try testing.expectEqual(5, int_queue.dequeue());
+    try testing.expectEqual(null, int_queue.dequeue());
 }
