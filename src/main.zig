@@ -7,6 +7,17 @@ const MazeErrorSet = error{
     OutOfMemory,
 };
 
+const Search = struct {
+    init: fn (allocator: std.mem.Allocator, maze: []const []const bool, start: Coord, end: Coord) MazeErrorSet!Search,
+    deinit: fn (self: *Search) void,
+    advance: fn (self: *Search) bool,
+};
+
+const DepthFirstSearch = struct {
+    search: Search,
+    stack: std.ArrayList(Coord),
+};
+
 fn loadFileToString(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
     const file = try std.fs.cwd().openFile(file_path, .{});
     defer file.close();
@@ -184,7 +195,7 @@ pub fn main() anyerror!void {
     const end_col = try std.fmt.parseInt(usize, args[5], 10);
     const searchType = try parseSearchType(args[6]);
 
-    const maze = try loadMaze(allocator, file_path);
+    const maze: [][]bool = try loadMaze(allocator, file_path);
     defer freeGrid(allocator, maze);
 
     const stdout = std.io.getStdOut().writer();
@@ -222,10 +233,21 @@ pub fn main() anyerror!void {
     //   Stack of coord
     //   array of visited data
 
+    // data
+    //   current position
+    //   target position
+    //   visited array
+    //   candidates
+    // operations
+    //   add a candidate to candidates
+    //   advance the search one step
+    //     get the next candidate
+    //     access to visited array (not an operation)
+
     var current: ?Coord = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
     const target = Coord{ .row = @intCast(end_row), .col = @intCast(end_col) };
 
-    var visited = try makeVisited(allocator, maze);
+    var visited: [][]Visit = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
 
     var candidates = try queue.Queue(Coord).init(allocator, maze.len * maze[0].len);
@@ -245,8 +267,9 @@ pub fn main() anyerror!void {
                 if (!c.equals(target)) {
                     const emptyNeighbors = try getEmptyNeighbors(allocator, visited, c);
                     defer allocator.free(emptyNeighbors);
+
                     for (emptyNeighbors) |neighbor| {
-                        visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Visited;
+                        visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Candidate;
                         try candidates.enqueue(neighbor);
                     }
                 }
@@ -307,8 +330,8 @@ pub fn main() anyerror!void {
                 } else {
                     switch (cell) {
                         Visit.Empty => rl.drawRectangle(x, y, width, height, rl.Color.white),
-                        Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.light_gray),
-                        Visit.Candidate => rl.drawRectangle(x, y, width, height, rl.Color.light_gray),
+                        Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.sky_blue),
+                        Visit.Candidate => rl.drawRectangle(x, y, width, height, rl.Color.dark_blue),
                         Visit.Blocked => rl.drawRectangle(x, y, width, height, rl.Color.dark_gray),
                     }
                 }
