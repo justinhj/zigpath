@@ -7,15 +7,68 @@ const MazeErrorSet = error{
     OutOfMemory,
 };
 
-const Search = struct {
-    init: fn (allocator: std.mem.Allocator, maze: []const []const bool, start: Coord, end: Coord) MazeErrorSet!Search,
-    deinit: fn (self: *Search) void,
-    advance: fn (self: *Search) bool,
+const StackCandidates = struct {
+    candidates: std.ArrayList(Coord),
+
+    const Self = @This();
+
+    fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!StackCandidates {
+        return StackCandidates{
+            .candidates = try std.ArrayList(Coord).initCapacity(allocator, initialCapacity),
+        };
+    }
+
+    fn deinit(self: *Self) void {
+        self.candidates.deinit();
+    }
+
+    fn add_candidate(self: *Self, candidate: Coord) MazeErrorSet!void {
+        try self.candidates.append(candidate);
+    }
+
+    fn get_candidate(self: *Self) ?Coord {
+        return self.candidates.popOrNull();
+    }
 };
 
-const DepthFirstSearch = struct {
-    search: Search,
-    stack: std.ArrayList(Coord),
+const QueueCandidates = struct {
+    candidates: queue.Queue(Coord),
+
+    const Self = @This();
+
+    fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!QueueCandidates {
+        const c = try queue.Queue(Coord).init(allocator, initialCapacity);
+        return QueueCandidates{ .candidates = c };
+    }
+
+    fn deinit(self: *Self) void {
+        self.candidates.deinit();
+    }
+
+    fn add_candidate(self: *Self, candidate: Coord) MazeErrorSet!void {
+        try self.candidates.enqueue(candidate);
+    }
+
+    fn get_candidate(self: *QueueCandidates) ?Coord {
+        return self.candidates.dequeue();
+    }
+};
+
+const Candidates = union(enum) {
+    stackCandidates: StackCandidates,
+    queueCandidates: QueueCandidates,
+
+    pub fn add_candidate(self: *Candidates, candidate: Coord) MazeErrorSet!void {
+        return switch (self.*) {
+            inline else => |*case| return try case.add_candidate(candidate),
+        };
+    }
+
+    pub fn get_candidate(self: *Candidates) ?Coord {
+        return switch (self.*) {
+            inline else => |*case| return case.get_candidate(),
+        };
+    }
 };
 
 fn loadFileToString(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
@@ -250,10 +303,18 @@ pub fn main() anyerror!void {
     var visited: [][]Visit = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
 
-    var candidates = try queue.Queue(Coord).init(allocator, maze.len * maze[0].len);
-    defer candidates.deinit();
+    const sc = try StackCandidates.init(allocator, maze.len * maze[0].len);
+    const qc = try QueueCandidates.init(allocator, maze.len * maze[0].len);
 
-    try candidates.enqueue(current.?);
+    var candidates: Candidates = switch (searchType) {
+        SearchType.DepthFirst => Candidates{ .stackCandidates = sc },
+        SearchType.BreadthFirst => Candidates{ .queueCandidates = qc },
+    };
+
+    // var candidates = try queue.Queue(Coord).init(allocator, maze.len * maze[0].len);
+    // defer candidates.deinit();
+
+    try candidates.add_candidate(current.?);
 
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
@@ -261,7 +322,7 @@ pub fn main() anyerror!void {
 
         // Expand the path search if its not over already
         if (!current.?.equals(target)) {
-            current = candidates.dequeue();
+            current = candidates.get_candidate();
             if (current) |c| {
                 visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
                 if (!c.equals(target)) {
@@ -270,7 +331,7 @@ pub fn main() anyerror!void {
 
                     for (emptyNeighbors) |neighbor| {
                         visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Candidate;
-                        try candidates.enqueue(neighbor);
+                        try candidates.add_candidate(neighbor);
                     }
                 }
             }
