@@ -303,16 +303,15 @@ pub fn main() anyerror!void {
     var visited: [][]Visit = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
 
-    const sc = try StackCandidates.init(allocator, maze.len * maze[0].len);
-    const qc = try QueueCandidates.init(allocator, maze.len * maze[0].len);
+    var sc = try StackCandidates.init(allocator, maze.len * maze[0].len);
+    defer sc.deinit();
+    var qc = try QueueCandidates.init(allocator, maze.len * maze[0].len);
+    defer qc.deinit();
 
     var candidates: Candidates = switch (searchType) {
         SearchType.DepthFirst => Candidates{ .stackCandidates = sc },
         SearchType.BreadthFirst => Candidates{ .queueCandidates = qc },
     };
-
-    // var candidates = try queue.Queue(Coord).init(allocator, maze.len * maze[0].len);
-    // defer candidates.deinit();
 
     try candidates.add_candidate(current.?);
 
