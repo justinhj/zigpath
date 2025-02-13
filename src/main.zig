@@ -1,9 +1,74 @@
 const rl = @import("raylib");
 const std = @import("std");
+const queue = @import("queue");
 
 const MazeErrorSet = error{
     InvalidMaze,
     OutOfMemory,
+};
+
+const StackCandidates = struct {
+    candidates: std.ArrayList(Coord),
+
+    const Self = @This();
+
+    fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!StackCandidates {
+        return StackCandidates{
+            .candidates = try std.ArrayList(Coord).initCapacity(allocator, initialCapacity),
+        };
+    }
+
+    fn deinit(self: *Self) void {
+        self.candidates.deinit();
+    }
+
+    fn add_candidate(self: *Self, candidate: Coord) MazeErrorSet!void {
+        try self.candidates.append(candidate);
+    }
+
+    fn get_candidate(self: *Self) ?Coord {
+        return self.candidates.popOrNull();
+    }
+};
+
+const QueueCandidates = struct {
+    candidates: queue.Queue(Coord),
+
+    const Self = @This();
+
+    fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!QueueCandidates {
+        const c = try queue.Queue(Coord).init(allocator, initialCapacity);
+        return QueueCandidates{ .candidates = c };
+    }
+
+    fn deinit(self: *Self) void {
+        self.candidates.deinit();
+    }
+
+    fn add_candidate(self: *Self, candidate: Coord) MazeErrorSet!void {
+        try self.candidates.enqueue(candidate);
+    }
+
+    fn get_candidate(self: *QueueCandidates) ?Coord {
+        return self.candidates.dequeue();
+    }
+};
+
+const Candidates = union(enum) {
+    stackCandidates: StackCandidates,
+    queueCandidates: QueueCandidates,
+
+    pub fn add_candidate(self: *Candidates, candidate: Coord) MazeErrorSet!void {
+        return switch (self.*) {
+            inline else => |*case| return try case.add_candidate(candidate),
+        };
+    }
+
+    pub fn get_candidate(self: *Candidates) ?Coord {
+        return switch (self.*) {
+            inline else => |*case| return case.get_candidate(),
+        };
+    }
 };
 
 fn loadFileToString(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
@@ -80,9 +145,10 @@ const Coord = struct {
 };
 
 const Visit = enum {
-    Empty,
-    Visited,
-    Blocked,
+    Empty, // Unvisited and unimpeaded
+    Visited, // Checked for goal
+    Candidate, // Added to consider later
+    Blocked, // Wall
 };
 
 pub fn makeVisited(allocator: std.mem.Allocator, maze: []const []const bool) ![][]Visit {
@@ -146,6 +212,21 @@ pub fn freeVisited(allocator: std.mem.Allocator, visited: [][]Visit) void {
     allocator.free(visited);
 }
 
+const SearchType = enum {
+    DepthFirst,
+    BreadthFirst,
+};
+
+pub fn parseSearchType(search_type: []const u8) !SearchType {
+    if (std.mem.eql(u8, search_type, "depthfirst")) {
+        return SearchType.DepthFirst;
+    } else if (std.mem.eql(u8, search_type, "breadthfirst")) {
+        return SearchType.BreadthFirst;
+    } else {
+        return error.InvalidArguments;
+    }
+}
+
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -155,8 +236,8 @@ pub fn main() anyerror!void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    if (args.len < 6) {
-        std.debug.print("Usage: {any} <file_path> <start_row> <start_col> <end_row> <end_col>\n", .{args[0]});
+    if (args.len < 7) {
+        std.debug.print("Usage: {any} <file_path> <start_row> <start_col> <end_row> <end_col> <search_type (depthfirst, breadthfirst)>\n", .{args[0]});
         return error.InvalidArguments;
     }
 
@@ -165,8 +246,9 @@ pub fn main() anyerror!void {
     const start_col = try std.fmt.parseInt(usize, args[3], 10);
     const end_row = try std.fmt.parseInt(usize, args[4], 10);
     const end_col = try std.fmt.parseInt(usize, args[5], 10);
+    const searchType = try parseSearchType(args[6]);
 
-    const maze = try loadMaze(allocator, file_path);
+    const maze: [][]bool = try loadMaze(allocator, file_path);
     defer freeGrid(allocator, maze);
 
     const stdout = std.io.getStdOut().writer();
@@ -192,58 +274,85 @@ pub fn main() anyerror!void {
     // current_row and current_col set to start position
     // while current_row and current_col are not equal to end position
     //   expand empty neighbors
+    //     this is done up down left then right and appended
+    //     so candidates will be in right, left, down and up
     //   add empty neighbors to stack
+    //     they are added in order but to the stack so we should expect the priority
+    //     to be in the reverse order when popped
+    //     ie up down left right
     //   pop stack as current row and column
     // Data
     //   Need a struct to hold row and col
     //   Stack of coord
     //   array of visited data
 
-    var current = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
+    // data
+    //   current position
+    //   target position
+    //   visited array
+    //   candidates
+    // operations
+    //   add a candidate to candidates
+    //   advance the search one step
+    //     get the next candidate
+    //     access to visited array (not an operation)
+
+    var current: ?Coord = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
     const target = Coord{ .row = @intCast(end_row), .col = @intCast(end_col) };
 
-    var visited = try makeVisited(allocator, maze);
+    var visited: [][]Visit = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
 
-    var candidates = std.ArrayList(Coord).init(allocator);
-    defer candidates.deinit();
+    var sc = try StackCandidates.init(allocator, maze.len * maze[0].len);
+    defer sc.deinit();
+    var qc = try QueueCandidates.init(allocator, maze.len * maze[0].len);
+    defer qc.deinit();
 
-    try candidates.append(current);
+    var candidates: Candidates = switch (searchType) {
+        SearchType.DepthFirst => Candidates{ .stackCandidates = sc },
+        SearchType.BreadthFirst => Candidates{ .queueCandidates = qc },
+    };
 
-    const skipFrames = 1;
-    var frameCounter: usize = 0;
+    try candidates.add_candidate(current.?);
 
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Update
 
         // Expand the path search if its not over already
-        if (frameCounter >= skipFrames) {
-            frameCounter = 0;
-
-            if (!current.equals(target)) {
-                current = candidates.pop();
-                if (!current.equals(target)) {
-                    const emptyNeighbors = try getEmptyNeighbors(allocator, visited, current);
+        if (!current.?.equals(target)) {
+            current = candidates.get_candidate();
+            if (current) |c| {
+                visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
+                if (!c.equals(target)) {
+                    const emptyNeighbors = try getEmptyNeighbors(allocator, visited, c);
                     defer allocator.free(emptyNeighbors);
+
                     for (emptyNeighbors) |neighbor| {
-                        visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Visited;
-                        try candidates.append(neighbor);
+                        visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Candidate;
+                        try candidates.add_candidate(neighbor);
                     }
                 }
             }
-        } else {
-            frameCounter += 1;
         }
 
         // Draw
         //----------------------------------------------------------------------------------
+        const frameTime = rl.getFrameTime();
+
         rl.beginDrawing();
         defer rl.endDrawing();
 
         rl.clearBackground(rl.Color.light_gray);
 
-        rl.drawText("ZigPath", leftMargin, topMargin, 18, rl.Color.black);
+        // Display the frame time
+        const searchTypeText: [*:0]const u8 = switch (searchType) {
+            SearchType.DepthFirst => "Depth First",
+            SearchType.BreadthFirst => "Breadth First",
+        };
+        const textPtr = std.mem.span(searchTypeText);
+        const frameTimeText = rl.textFormat("ZigPath - Search type %s Render time: %.3f ms", .{ textPtr.ptr, frameTime * 1000 });
+        rl.drawText(frameTimeText, leftMargin, rightMargin, 18, rl.Color.black);
 
         const mapStartY = topMargin + 30;
         const mapEndY = windowHeight - bottomMargin;
@@ -272,7 +381,7 @@ pub fn main() anyerror!void {
                 const height: i32 = @intCast(maxCellSize);
 
                 // Highlight start and end positions
-                if (rowIdx == current.row and colIdx == current.col) {
+                if (current != null and rowIdx == current.?.row and colIdx == current.?.col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.yellow);
                 } else if (rowIdx == start_row and colIdx == start_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.green);
@@ -281,7 +390,8 @@ pub fn main() anyerror!void {
                 } else {
                     switch (cell) {
                         Visit.Empty => rl.drawRectangle(x, y, width, height, rl.Color.white),
-                        Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.light_gray),
+                        Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.sky_blue),
+                        Visit.Candidate => rl.drawRectangle(x, y, width, height, rl.Color.dark_blue),
                         Visit.Blocked => rl.drawRectangle(x, y, width, height, rl.Color.dark_gray),
                     }
                 }

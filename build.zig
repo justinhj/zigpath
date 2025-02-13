@@ -36,6 +36,12 @@ pub fn build(b: *std.Build) !void {
 
     const exe = b.addExecutable(.{ .name = "zigpath", .root_source_file = b.path("src/main.zig"), .optimize = optimize, .target = target });
 
+    // Create private module
+    const queue_mod = b.createModule(.{
+        .root_source_file = b.path("src/queue.zig"),
+    });
+    exe.root_module.addImport("queue", queue_mod);
+
     exe.linkLibrary(raylib_artifact);
     exe.root_module.addImport("raylib", raylib);
 
