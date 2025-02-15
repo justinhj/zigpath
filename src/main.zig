@@ -383,16 +383,31 @@ pub fn main() anyerror!void {
                 // Highlight start and end positions
                 if (current != null and rowIdx == current.?.row and colIdx == current.?.col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.yellow);
+                    rl.drawRectangleLines(x, y, width, height, rl.Color.black);
                 } else if (rowIdx == start_row and colIdx == start_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.green);
+                    rl.drawRectangleLines(x, y, width, height, rl.Color.black);
                 } else if (rowIdx == end_row and colIdx == end_col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.red);
+                    rl.drawRectangleLines(x, y, width, height, rl.Color.black);
                 } else {
                     switch (cell) {
-                        Visit.Empty => rl.drawRectangle(x, y, width, height, rl.Color.white),
-                        Visit.Visited => rl.drawRectangle(x, y, width, height, rl.Color.sky_blue),
-                        Visit.Candidate => rl.drawRectangle(x, y, width, height, rl.Color.dark_blue),
-                        Visit.Blocked => rl.drawRectangle(x, y, width, height, rl.Color.dark_gray),
+                        Visit.Empty => {
+                            rl.drawRectangle(x, y, width, height, rl.Color.white);
+                            rl.drawRectangleLines(x, y, width, height, rl.Color.black);
+                        },
+                        Visit.Visited => {
+                            rl.drawRectangle(x, y, width, height, rl.Color.sky_blue);
+                            rl.drawRectangleLines(x, y, width, height, rl.Color.black);
+                        },
+                        Visit.Candidate => {
+                            rl.drawRectangle(x, y, width, height, rl.Color.dark_blue);
+                            rl.drawRectangleLines(x, y, width, height, rl.Color.black);
+                        },
+                        Visit.Blocked => {
+                            rl.drawRectangle(x, y, width, height, rl.Color.dark_gray);
+                            rl.drawRectangleLines(x, y, width, height, rl.Color.black);
+                        },
                     }
                 }
             }
