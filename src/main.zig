@@ -1,5 +1,6 @@
 const rl = @import("raylib");
 const std = @import("std");
+
 const queue = @import("queue");
 
 const MazeErrorSet = error{
@@ -149,6 +150,7 @@ const Visit = enum {
     Visited, // Checked for goal
     Candidate, // Added to consider later
     Blocked, // Wall
+    Path, // Part of the final path
 };
 
 pub fn makeVisited(allocator: std.mem.Allocator, maze: []const []const bool) ![][]Visit {
@@ -268,40 +270,14 @@ pub fn main() anyerror!void {
 
     rl.setTargetFPS(60);
 
-    //--------------------------------------------------------------------------------------
-
-    // Method
-    // current_row and current_col set to start position
-    // while current_row and current_col are not equal to end position
-    //   expand empty neighbors
-    //     this is done up down left then right and appended
-    //     so candidates will be in right, left, down and up
-    //   add empty neighbors to stack
-    //     they are added in order but to the stack so we should expect the priority
-    //     to be in the reverse order when popped
-    //     ie up down left right
-    //   pop stack as current row and column
-    // Data
-    //   Need a struct to hold row and col
-    //   Stack of coord
-    //   array of visited data
-
-    // data
-    //   current position
-    //   target position
-    //   visited array
-    //   candidates
-    // operations
-    //   add a candidate to candidates
-    //   advance the search one step
-    //     get the next candidate
-    //     access to visited array (not an operation)
-
     var current: ?Coord = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
     const target = Coord{ .row = @intCast(end_row), .col = @intCast(end_col) };
 
     var visited: [][]Visit = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
+
+    var cameFrom = std.AutoArrayHashMap(Coord, Coord).init(allocator);
+    defer cameFrom.deinit();
 
     var sc = try StackCandidates.init(allocator, maze.len * maze[0].len);
     defer sc.deinit();
@@ -315,11 +291,11 @@ pub fn main() anyerror!void {
 
     try candidates.add_candidate(current.?);
 
+    var solved = false;
+
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
-        // Update
-
-        // Expand the path search if its not over already
+        // Expand the path search if it's not over already
         if (!current.?.equals(target)) {
             current = candidates.get_candidate();
             if (current) |c| {
@@ -331,9 +307,26 @@ pub fn main() anyerror!void {
                     for (emptyNeighbors) |neighbor| {
                         visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Candidate;
                         try candidates.add_candidate(neighbor);
+                        try cameFrom.put(neighbor, c);
                     }
                 }
             }
+        } else if (solved == false) {
+            // Construct the path
+            var path = std.ArrayList(Coord).init(allocator);
+            defer path.deinit();
+
+            var currentPath: ?Coord = target;
+            while (currentPath != null) {
+                try path.append(currentPath.?);
+                currentPath = cameFrom.get(currentPath.?);
+            }
+
+            for (path.items) |coord| {
+                visited[@intCast(coord.row)][@intCast(coord.col)] = Visit.Path;
+            }
+
+            solved = true;
         }
 
         // Draw
@@ -406,6 +399,10 @@ pub fn main() anyerror!void {
                         },
                         Visit.Blocked => {
                             rl.drawRectangle(x, y, width, height, rl.Color.dark_gray);
+                            rl.drawRectangleLines(x, y, width, height, rl.Color.black);
+                        },
+                        Visit.Path => {
+                            rl.drawRectangle(x, y, width, height, rl.Color.orange);
                             rl.drawRectangleLines(x, y, width, height, rl.Color.black);
                         },
                     }
