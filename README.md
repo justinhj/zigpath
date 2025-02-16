@@ -79,10 +79,17 @@ Example maze file (`maze.txt`):
 - **`getEmptyNeighbors`**: Function to retrieve empty neighboring cells of a given position.
 - **`main`**: The main function that initializes the application, handles command line arguments, and runs the search algorithm.
 
-Thanks to Jerry Thomas for this article explaining the options of compile-time interfaces in Zig.
+## Resources
+
+### Compile-Time Interfaces in Zig
+
+Thanks to Jerry Thomas for this article explaining some common ways to implement interfaces in Zig.
 
 [https://medium.com/@jerrythomas_in/exploring-compile-time-interfaces-in-zig-5c1a1a9e59fd]
 
+### Maze Generation
+
+[https://www.dcode.fr/maze-generator]
 
 ## Contributing
 
