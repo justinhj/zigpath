@@ -8,13 +8,13 @@ const MazeErrorSet = error{
     OutOfMemory,
 };
 
-const StackCandidates = struct {
+const DepthFirstSearch = struct {
     candidates: std.ArrayList(Coord),
 
     const Self = @This();
 
-    fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!StackCandidates {
-        return StackCandidates{
+    fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!DepthFirstSearch {
+        return DepthFirstSearch{
             .candidates = try std.ArrayList(Coord).initCapacity(allocator, initialCapacity),
         };
     }
@@ -32,14 +32,14 @@ const StackCandidates = struct {
     }
 };
 
-const QueueCandidates = struct {
+const BreadthFirstSearch = struct {
     candidates: queue.Queue(Coord),
 
     const Self = @This();
 
-    fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!QueueCandidates {
+    fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!BreadthFirstSearch {
         const c = try queue.Queue(Coord).init(allocator, initialCapacity);
-        return QueueCandidates{ .candidates = c };
+        return BreadthFirstSearch{ .candidates = c };
     }
 
     fn deinit(self: *Self) void {
@@ -50,14 +50,14 @@ const QueueCandidates = struct {
         try self.candidates.enqueue(candidate);
     }
 
-    fn get_candidate(self: *QueueCandidates) ?Coord {
+    fn get_candidate(self: *BreadthFirstSearch) ?Coord {
         return self.candidates.dequeue();
     }
 };
 
 const Candidates = union(enum) {
-    stackCandidates: StackCandidates,
-    queueCandidates: QueueCandidates,
+    stackCandidates: DepthFirstSearch,
+    queueCandidates: BreadthFirstSearch,
 
     pub fn add_candidate(self: *Candidates, candidate: Coord) MazeErrorSet!void {
         return switch (self.*) {
@@ -279,9 +279,9 @@ pub fn main() anyerror!void {
     var cameFrom = std.AutoArrayHashMap(Coord, Coord).init(allocator);
     defer cameFrom.deinit();
 
-    var sc = try StackCandidates.init(allocator, maze.len * maze[0].len);
+    var sc = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
     defer sc.deinit();
-    var qc = try QueueCandidates.init(allocator, maze.len * maze[0].len);
+    var qc = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
     defer qc.deinit();
 
     var candidates: Candidates = switch (searchType) {
