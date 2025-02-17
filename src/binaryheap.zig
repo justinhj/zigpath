@@ -106,8 +106,12 @@ pub fn BinaryHeap(comptime Child: type) type {
 
 const testing = std.testing;
 
+fn i32LessThan(a: i32, b: i32) bool {
+    return a < b;
+}
+
 test "Basic" {
-    var heap = try BinaryHeap(i32).init(testing.allocator, 10);
+    var heap = try BinaryHeap(i32).init(testing.allocator, 10, i32LessThan);
     defer heap.deinit();
 
     try heap.insert(10);
@@ -142,7 +146,7 @@ test "Basic" {
 }
 
 test "Expand capacity" {
-    var heap = try BinaryHeap(i32).init(testing.allocator, 5);
+    var heap = try BinaryHeap(i32).init(testing.allocator, 5, i32LessThan);
     defer heap.deinit();
 
     try heap.insert(10);
@@ -165,4 +169,33 @@ test "Expand capacity" {
     try testing.expect(heap.extractMin().? == 20);
     try testing.expect(heap.extractMin().? == 22);
     try testing.expect(heap.extractMin() == null);
+}
+
+const Coord = struct {
+    row: i32,
+    col: i32,
+};
+
+const fScoreEntry = struct {
+    coord: Coord,
+    score: i32,
+};
+
+fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
+    return a.score < b.score;
+}
+
+test "With custom struct" {
+    var heap = try BinaryHeap(fScoreEntry).init(testing.allocator, 5, fScoreLessThan);
+    defer heap.deinit();
+
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 10 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 5 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 20 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 25 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 12 });
+    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 8 });
+
+    try testing.expect(heap.extractMin().?.score == 5);
+    try testing.expect(heap.extractMin().?.score == 8);
 }

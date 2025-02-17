@@ -29,7 +29,7 @@ const DepthFirstSearch = struct {
         try self.candidates.append(candidate);
     }
 
-    fn get_candidate(self: *Self) ?Coord {
+    fn get_candidate(self: *Self) MazeErrorSet!?Coord {
         return self.candidates.popOrNull();
     }
 };
@@ -53,7 +53,7 @@ const BreadthFirstSearch = struct {
         try self.candidates.enqueue(candidate);
     }
 
-    fn get_candidate(self: *BreadthFirstSearch) ?Coord {
+    fn get_candidate(self: *BreadthFirstSearch) MazeErrorSet!?Coord {
         return self.candidates.dequeue();
     }
 };
@@ -126,12 +126,11 @@ const AStarSearch = struct {
         _ = try self.fScore.insert(fScoreEntry{ .coord = candidate, .score = fScore });
     }
 
-    fn get_candidate(self: *AStarSearch) ?Coord {
+    fn get_candidate(self: *AStarSearch) MazeErrorSet!?Coord {
         const bestFScore = self.fScore.extractMin();
         if (bestFScore) |entry| {
             _ = self.openSet.swapRemove(entry.coord);
-            // TODO probably need to make get_candidate return an error union
-            _ = self.closedSet.put(entry.coord, true) catch return null;
+            _ = try self.closedSet.put(entry.coord, true);
             return entry.coord;
         }
         return null;
@@ -148,7 +147,7 @@ const Candidates = union(enum) {
         };
     }
 
-    pub fn get_candidate(self: *Candidates) ?Coord {
+    pub fn get_candidate(self: *Candidates) MazeErrorSet!?Coord {
         return switch (self.*) {
             inline else => |*case| return case.get_candidate(),
         };
@@ -387,10 +386,11 @@ pub fn main() anyerror!void {
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Expand the path search if it's not over already
         if (!failed and !solved and !current.?.equals(target)) {
-            current = candidates.get_candidate();
+            current = try candidates.get_candidate();
             if (current) |c| {
                 visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
                 if (!c.equals(target)) {
+                    // TODO no need to allocate here
                     const emptyNeighbors = try getEmptyNeighbors(allocator, visited, c);
                     defer allocator.free(emptyNeighbors);
 
