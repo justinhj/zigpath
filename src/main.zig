@@ -381,11 +381,12 @@ pub fn main() anyerror!void {
     try candidates.add_candidate(current.?, null);
 
     var solved = false;
+    var failed = false;
 
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Expand the path search if it's not over already
-        if (!current.?.equals(target)) {
+        if (!failed and !solved and !current.?.equals(target)) {
             current = candidates.get_candidate();
             if (current) |c| {
                 visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
@@ -399,8 +400,10 @@ pub fn main() anyerror!void {
                         try cameFrom.put(neighbor, c);
                     }
                 }
+            } else {
+                failed = true;
             }
-        } else if (solved == false) {
+        } else if (!failed and solved == false) {
             // Construct the path
             var path = std.ArrayList(Coord).init(allocator);
             defer path.deinit();
