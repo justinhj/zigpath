@@ -2,6 +2,7 @@ const rl = @import("raylib");
 const std = @import("std");
 
 const queue = @import("queue");
+const binaryHeap = @import("BinaryHeap");
 
 const MazeErrorSet = error{
     InvalidMaze,
@@ -23,7 +24,8 @@ const DepthFirstSearch = struct {
         self.candidates.deinit();
     }
 
-    fn add_candidate(self: *Self, candidate: Coord) MazeErrorSet!void {
+    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!void {
+        _ = from;
         try self.candidates.append(candidate);
     }
 
@@ -46,7 +48,8 @@ const BreadthFirstSearch = struct {
         self.candidates.deinit();
     }
 
-    fn add_candidate(self: *Self, candidate: Coord) MazeErrorSet!void {
+    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!void {
+        _ = from;
         try self.candidates.enqueue(candidate);
     }
 
@@ -55,13 +58,86 @@ const BreadthFirstSearch = struct {
     }
 };
 
+const fScoreEntry = struct {
+    coord: Coord,
+    score: i32,
+};
+
+const AStarSearch = struct {
+    openSet: std.AutoArrayHashMap(Coord, bool),
+    closedSet: std.AutoArrayHashMap(Coord, bool),
+    gScore: std.AutoArrayHashMap(Coord, i32),
+    fScore: binaryHeap.BinaryHeap(fScoreEntry),
+    target: Coord,
+
+    const Self = @This();
+
+    fn init(allocator: std.mem.Allocator, target: Coord) MazeErrorSet!AStarSearch {
+        const os = std.AutoArrayHashMap(Coord, bool).init(allocator);
+        const cs = std.AutoArrayHashMap(Coord, bool).init(allocator);
+        const gs = std.AutoArrayHashMap(Coord, i32).init(allocator);
+        const fs = try binaryHeap.BinaryHeap(fScoreEntry).init(allocator, 100);
+
+        return AStarSearch{
+            .openSet = os,
+            .closedSet = cs,
+            .gScore = gs,
+            .fScore = fs,
+            .target = target,
+        };
+    }
+
+    fn deinit(self: *Self) void {
+        self.openSet.deinit();
+        self.closedSet.deinit();
+        self.gScore.deinit();
+        self.fScore.deinit();
+    }
+
+    fn manhattanDistance(a: Coord, b: Coord) i32 {
+        return i32.abs(a.row - b.row) + i32.abs(a.col - b.col);
+    }
+
+    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!void {
+        if (self.closedSet.contains(candidate)) {
+            return;
+        }
+        const priorCost: i32 = if (from) |f| self.gScore.get(f) orelse 0 else 0;
+        const tentativeGScore = priorCost + 1;
+
+        if (!self.openSet.contains(candidate)) {
+            _ = try self.openSet.put(candidate, true);
+        }
+        const previousScore = self.gScore.get(candidate) orelse std.math.maxInt(i32);
+        if (tentativeGScore >= previousScore) {
+            return;
+        }
+        if (from) |f| {
+            try self.cameFrom.put(candidate, f);
+        }
+        self.gScore.put(candidate, tentativeGScore);
+        const fScore = tentativeGScore + self.manhattanDistance(candidate, self.target);
+        self.fScore.insert(fScoreEntry{ .coord = candidate, .score = fScore });
+    }
+
+    fn get_candidate(self: *AStarSearch) ?Coord {
+        const bestFScore = self.fScore.extractMin();
+        if (bestFScore) |entry| {
+            _ = self.openSet.swapRemove(entry.coord);
+            self.closedSet.put(entry.coord, true);
+            return entry.coord;
+        }
+        return null;
+    }
+};
 const Candidates = union(enum) {
     stackCandidates: DepthFirstSearch,
     queueCandidates: BreadthFirstSearch,
+    aStarCandidates: AStarSearch,
 
-    pub fn add_candidate(self: *Candidates, candidate: Coord) MazeErrorSet!void {
+    pub fn add_candidate(self: *Candidates, candidate: Coord, from: ?Coord) MazeErrorSet!void {
         return switch (self.*) {
-            inline else => |*case| return try case.add_candidate(candidate),
+            inline else => |*case| return try case.add_candidate(candidate, from),
         };
     }
 
@@ -217,6 +293,7 @@ pub fn freeVisited(allocator: std.mem.Allocator, visited: [][]Visit) void {
 const SearchType = enum {
     DepthFirst,
     BreadthFirst,
+    AStar,
 };
 
 pub fn parseSearchType(search_type: []const u8) !SearchType {
@@ -224,6 +301,8 @@ pub fn parseSearchType(search_type: []const u8) !SearchType {
         return SearchType.DepthFirst;
     } else if (std.mem.eql(u8, search_type, "breadthfirst")) {
         return SearchType.BreadthFirst;
+    } else if (std.mem.eql(u8, search_type, "astar")) {
+        return SearchType.AStar;
     } else {
         return error.InvalidArguments;
     }
@@ -239,7 +318,7 @@ pub fn main() anyerror!void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len < 7) {
-        std.debug.print("Usage: {any} <file_path> <start_row> <start_col> <end_row> <end_col> <search_type (depthfirst, breadthfirst)>\n", .{args[0]});
+        std.debug.print("Usage: {any} <file_path> <start_row> <start_col> <end_row> <end_col> <search_type (depthfirst, breadthfirst, astar)>\n", .{args[0]});
         return error.InvalidArguments;
     }
 
@@ -283,13 +362,16 @@ pub fn main() anyerror!void {
     defer sc.deinit();
     var qc = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
     defer qc.deinit();
+    var ac = try AStarSearch.init(allocator, target);
+    defer ac.deinit();
 
     var candidates: Candidates = switch (searchType) {
         SearchType.DepthFirst => Candidates{ .stackCandidates = sc },
         SearchType.BreadthFirst => Candidates{ .queueCandidates = qc },
+        SearchType.AStar => Candidates{ .aStarCandidates = ac },
     };
 
-    try candidates.add_candidate(current.?);
+    try candidates.add_candidate(current.?, null);
 
     var solved = false;
 
@@ -306,7 +388,7 @@ pub fn main() anyerror!void {
 
                     for (emptyNeighbors) |neighbor| {
                         visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Candidate;
-                        try candidates.add_candidate(neighbor);
+                        try candidates.add_candidate(neighbor, current);
                         try cameFrom.put(neighbor, c);
                     }
                 }
@@ -342,6 +424,7 @@ pub fn main() anyerror!void {
         const searchTypeText: [*:0]const u8 = switch (searchType) {
             SearchType.DepthFirst => "Depth First",
             SearchType.BreadthFirst => "Breadth First",
+            SearchType.AStar => "AStar",
         };
         const textPtr = std.mem.span(searchTypeText);
         const frameTimeText = rl.textFormat("ZigPath - Search type %s Render time: %.3f ms", .{ textPtr.ptr, frameTime * 1000 });
