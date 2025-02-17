@@ -63,6 +63,10 @@ const fScoreEntry = struct {
     score: i32,
 };
 
+fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
+    return a.score < b.score;
+}
+
 const AStarSearch = struct {
     openSet: std.AutoArrayHashMap(Coord, bool),
     closedSet: std.AutoArrayHashMap(Coord, bool),
@@ -76,7 +80,7 @@ const AStarSearch = struct {
         const os = std.AutoArrayHashMap(Coord, bool).init(allocator);
         const cs = std.AutoArrayHashMap(Coord, bool).init(allocator);
         const gs = std.AutoArrayHashMap(Coord, i32).init(allocator);
-        const fs = try binaryHeap.BinaryHeap(fScoreEntry).init(allocator, 100);
+        const fs = try binaryHeap.BinaryHeap(fScoreEntry).init(allocator, 100, fScoreLessThan);
 
         return AStarSearch{
             .openSet = os,
@@ -94,8 +98,9 @@ const AStarSearch = struct {
         self.fScore.deinit();
     }
 
-    fn manhattanDistance(a: Coord, b: Coord) i32 {
-        return i32.abs(a.row - b.row) + i32.abs(a.col - b.col);
+    fn manhattanDistance(self: *Self, a: Coord, b: Coord) i32 {
+        _ = self;
+        return @intCast(@abs(a.row - b.row) + @abs(a.col - b.col));
     }
 
     fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!void {
@@ -112,19 +117,21 @@ const AStarSearch = struct {
         if (tentativeGScore >= previousScore) {
             return;
         }
-        if (from) |f| {
-            try self.cameFrom.put(candidate, f);
-        }
-        self.gScore.put(candidate, tentativeGScore);
+        // TODO ???
+        // if (from) |f| {
+        //     try self.cameFrom.put(candidate, f);
+        // }
+        _ = try self.gScore.put(candidate, tentativeGScore);
         const fScore = tentativeGScore + self.manhattanDistance(candidate, self.target);
-        self.fScore.insert(fScoreEntry{ .coord = candidate, .score = fScore });
+        _ = try self.fScore.insert(fScoreEntry{ .coord = candidate, .score = fScore });
     }
 
     fn get_candidate(self: *AStarSearch) ?Coord {
         const bestFScore = self.fScore.extractMin();
         if (bestFScore) |entry| {
             _ = self.openSet.swapRemove(entry.coord);
-            self.closedSet.put(entry.coord, true);
+            // TODO probably need to make get_candidate return an error union
+            _ = self.closedSet.put(entry.coord, true) catch return null;
             return entry.coord;
         }
         return null;

@@ -6,14 +6,16 @@ pub fn BinaryHeap(comptime Child: type) type {
         const This = @This();
 
         items: ArrayList(Child),
+        lessThan: *const fn (a: Child, b: Child) bool,
 
         const Self = @This();
 
         // Initialize the binary heap
-        pub fn init(allocator: std.mem.Allocator, initialCapacity: usize) !Self {
+        pub fn init(allocator: std.mem.Allocator, initialCapacity: usize, lessThanFn: *const fn (Child, Child) bool) !Self {
             const items = try ArrayList(Child).initCapacity(allocator, initialCapacity);
             return Self{
                 .items = items,
+                .lessThan = lessThanFn,
             };
         }
 
@@ -47,7 +49,7 @@ pub fn BinaryHeap(comptime Child: type) type {
         // Heapify up (used after insertion)
         fn heapifyUp(self: *Self, index: usize) void {
             var current = index;
-            while (current > 0 and self.items.items[current] < self.items.items[parentIndex(current)]) {
+            while (current > 0 and self.lessThan(self.items.items[current], self.items.items[parentIndex(current)])) {
                 self.swap(current, parentIndex(current));
                 current = parentIndex(current);
             }
@@ -61,11 +63,11 @@ pub fn BinaryHeap(comptime Child: type) type {
                 const right = rightChildIndex(current);
                 var smallest = current;
 
-                if (left < self.items.items.len and self.items.items[left] < self.items.items[smallest]) {
+                if (left < self.items.items.len and self.lessThan(self.items.items[left], self.items.items[smallest])) {
                     smallest = left;
                 }
 
-                if (right < self.items.items.len and self.items.items[right] < self.items.items[smallest]) {
+                if (right < self.items.items.len and self.lessThan(self.items.items[right], self.items.items[smallest])) {
                     smallest = right;
                 }
 
