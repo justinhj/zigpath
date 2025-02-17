@@ -68,18 +68,18 @@ fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
 }
 
 const AStarSearch = struct {
-    openSet: std.AutoArrayHashMap(Coord, bool),
-    closedSet: std.AutoArrayHashMap(Coord, bool),
-    gScore: std.AutoArrayHashMap(Coord, i32),
+    openSet: std.AutoHashMap(Coord, bool),
+    closedSet: std.AutoHashMap(Coord, bool),
+    gScore: std.AutoHashMap(Coord, i32),
     fScore: binaryHeap.BinaryHeap(fScoreEntry),
     target: Coord,
 
     const Self = @This();
 
     fn init(allocator: std.mem.Allocator, target: Coord) MazeErrorSet!AStarSearch {
-        const os = std.AutoArrayHashMap(Coord, bool).init(allocator);
-        const cs = std.AutoArrayHashMap(Coord, bool).init(allocator);
-        const gs = std.AutoArrayHashMap(Coord, i32).init(allocator);
+        const os = std.AutoHashMap(Coord, bool).init(allocator);
+        const cs = std.AutoHashMap(Coord, bool).init(allocator);
+        const gs = std.AutoHashMap(Coord, i32).init(allocator);
         const fs = try binaryHeap.BinaryHeap(fScoreEntry).init(allocator, 100, fScoreLessThan);
 
         return AStarSearch{
@@ -129,7 +129,7 @@ const AStarSearch = struct {
     fn get_candidate(self: *AStarSearch) MazeErrorSet!?Coord {
         const bestFScore = self.fScore.extractMin();
         if (bestFScore) |entry| {
-            _ = self.openSet.swapRemove(entry.coord);
+            _ = self.openSet.remove(entry.coord);
             _ = try self.closedSet.put(entry.coord, true);
             return entry.coord;
         }
@@ -363,7 +363,7 @@ pub fn main() anyerror!void {
     var visited: [][]Visit = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
 
-    var cameFrom = std.AutoArrayHashMap(Coord, Coord).init(allocator);
+    var cameFrom = std.AutoHashMap(Coord, Coord).init(allocator);
     defer cameFrom.deinit();
 
     var sc = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
