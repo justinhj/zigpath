@@ -55,4 +55,20 @@ pub fn build(b: *std.Build) !void {
     run_step.dependOn(&run_cmd.step);
 
     b.installArtifact(exe);
+
+    // Add a test step
+    const test_exe = b.addTest(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // Add necessary modules to the test executable
+    test_exe.root_module.addImport("queue", queue_mod);
+    test_exe.root_module.addImport("BinaryHeap", binary_heap_mod);
+    test_exe.root_module.addImport("raylib", raylib);
+
+    const test_cmd = b.addRunArtifact(test_exe);
+    const test_step = b.step("test", "Run tests");
+    test_step.dependOn(&test_cmd.step);
 }

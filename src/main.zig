@@ -507,3 +507,13 @@ pub fn main() anyerror!void {
         //----------------------------------------------------------------------------------
     }
 }
+
+const testing = std.testing;
+
+test "AStar search" {
+    const target = Coord{ .row = 0, .col = 0 };
+    var ac = try AStarSearch.init(testing.allocator, target);
+    defer ac.deinit();
+
+    try testing.expectEqual(25, 10 + 15);
+}
