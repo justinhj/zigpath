@@ -262,31 +262,33 @@ pub fn makeVisited(allocator: std.mem.Allocator, maze: []const []const bool) ![]
     return visited;
 }
 
-pub fn getEmptyNeighbors(allocator: std.mem.Allocator, visited: []const []const Visit, current: Coord) ![]Coord {
-    var neighbors = std.ArrayList(Coord).init(allocator);
-    errdefer neighbors.deinit(); // Ensure cleanup on error
-
+pub fn getEmptyNeighbors(visited: []const []const Visit, current: Coord, neighbors: *[4]Coord) usize {
+    var count: usize = 0;
     // Check the cell above
     if (current.row > 0 and visited[@intCast(current.row - 1)][@intCast(current.col)] == Visit.Empty) {
-        try neighbors.append(Coord{ .row = current.row - 1, .col = current.col });
+        neighbors[count] = Coord{ .row = current.row - 1, .col = current.col };
+        count += 1;
     }
 
     // Check the cell below
     if (current.row + 1 < visited.len and visited[@intCast(current.row + 1)][@intCast(current.col)] == Visit.Empty) {
-        try neighbors.append(Coord{ .row = current.row + 1, .col = current.col });
+        neighbors[count] = Coord{ .row = current.row + 1, .col = current.col };
+        count += 1;
     }
 
     // Check the cell to the left
     if (current.col > 0 and visited[@intCast(current.row)][@intCast(current.col - 1)] == Visit.Empty) {
-        try neighbors.append(Coord{ .row = current.row, .col = current.col - 1 });
+        neighbors[count] = Coord{ .row = current.row, .col = current.col - 1 };
+        count += 1;
     }
 
     // Check the cell to the right
     if (current.col + 1 < visited[0].len and visited[@intCast(current.row)][@intCast(current.col + 1)] == Visit.Empty) {
-        try neighbors.append(Coord{ .row = current.row, .col = current.col + 1 });
+        neighbors[count] = Coord{ .row = current.row, .col = current.col + 1 };
+        count += 1;
     }
 
-    return neighbors.toOwnedSlice();
+    return count;
 }
 
 pub fn freeVisited(allocator: std.mem.Allocator, visited: [][]Visit) void {
@@ -390,14 +392,13 @@ pub fn main() anyerror!void {
             if (current) |c| {
                 visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
                 if (!c.equals(target)) {
-                    // TODO no need to allocate here
-                    const emptyNeighbors = try getEmptyNeighbors(allocator, visited, c);
-                    defer allocator.free(emptyNeighbors);
+                    var neighbors: [4]Coord = undefined;
+                    const emptyNeighbors = getEmptyNeighbors(visited, c, &neighbors);
 
-                    for (emptyNeighbors) |neighbor| {
-                        visited[@intCast(neighbor.row)][@intCast(neighbor.col)] = Visit.Candidate;
-                        try candidates.add_candidate(neighbor, current);
-                        try cameFrom.put(neighbor, c);
+                    for (0..emptyNeighbors) |n| {
+                        visited[@intCast(neighbors[n].row)][@intCast(neighbors[n].col)] = Visit.Candidate;
+                        try candidates.add_candidate(neighbors[n], current);
+                        try cameFrom.put(neighbors[n], c);
                     }
                 }
             } else {
