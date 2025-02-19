@@ -11,7 +11,7 @@ pub fn BinaryHeap(comptime Child: type) type {
         const Self = @This();
 
         // Initialize the binary heap
-        pub fn init(allocator: std.mem.Allocator, initialCapacity: usize, lessThanFn: *const fn (Child, Child) bool) !Self {
+        pub fn initCapacity(allocator: std.mem.Allocator, initialCapacity: usize, lessThanFn: *const fn (Child, Child) bool) !Self {
             const items = try ArrayList(Child).initCapacity(allocator, initialCapacity);
             return Self{
                 .items = items,
@@ -186,7 +186,7 @@ fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
 }
 
 test "With custom struct" {
-    var heap = try BinaryHeap(fScoreEntry).init(testing.allocator, 5, fScoreLessThan);
+    var heap = try BinaryHeap(fScoreEntry).initCapacity(testing.allocator, 5, fScoreLessThan);
     defer heap.deinit();
 
     try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 10 });

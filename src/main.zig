@@ -80,7 +80,7 @@ const AStarSearch = struct {
         const os = std.AutoHashMap(Coord, bool).init(allocator);
         const cs = std.AutoHashMap(Coord, bool).init(allocator);
         const gs = std.AutoHashMap(Coord, i32).init(allocator);
-        const fs = try binaryHeap.BinaryHeap(fScoreEntry).init(allocator, 100, fScoreLessThan);
+        const fs = try binaryHeap.BinaryHeap(fScoreEntry).initCapacity(allocator, 100, fScoreLessThan);
 
         return AStarSearch{
             .openSet = os,
@@ -326,7 +326,7 @@ pub fn main() anyerror!void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len < 7) {
-        std.debug.print("Usage: {any} <file_path> <start_row> <start_col> <end_row> <end_col> <search_type (depthfirst, breadthfirst, astar)>\n", .{args[0]});
+        std.debug.print("Usage: {d} arg provided. Expected <file_path> <start_row> <start_col> <end_row> <end_col> <search_type (depthfirst, breadthfirst, astar)>\n", .{args.len});
         return error.InvalidArguments;
     }
 
@@ -380,12 +380,33 @@ pub fn main() anyerror!void {
     };
 
     try candidates.add_candidate(current.?, null);
+    // _ = try candidates.get_candidate();
 
     var solved = false;
     var failed = false;
 
+    // Create a HashMap from i32 to bool
+    var map = std.AutoHashMap(Coord, bool).init(allocator);
+    defer map.deinit();
+
+    // Insert some key-value pairs
+    try map.put(Coord{ .row = 10, .col = 20 }, true);
+    try map.put(Coord{ .row = 20, .col = 30 }, true);
+    try map.put(Coord{ .row = 30, .col = 40 }, true);
+
+    // Retrieve values
+    const value1 = map.get(Coord{ .row = 10, .col = 20 });
+
+    // Check if keys exist and print their values
+    if (value1) |v| std.debug.print("Key 1 has value: {}\n", .{v});
+
+    // Check if a key does not exist
+    const non_existent = map.get(Coord{ .row = 40, .col = 50 });
+    if (non_existent == null) {
+        std.debug.print("Key 4 does not exist in the map\n", .{});
+    }
     // Main game loop
-    while (!rl.windowShouldClose()) { // Detect window close button or ESC key
+    while (false) { //  or !rl.windowShouldClose()) { // Detect window close button or ESC key
         // Expand the path search if it's not over already
         if (!failed and !solved and !current.?.equals(target)) {
             current = try candidates.get_candidate();
@@ -515,5 +536,10 @@ test "AStar search" {
     var ac = try AStarSearch.init(testing.allocator, target);
     defer ac.deinit();
 
-    try testing.expectEqual(25, 10 + 15);
+    _ = try ac.add_candidate(Coord{ .row = 0, .col = 1 }, null);
+    _ = try ac.add_candidate(Coord{ .row = 0, .col = 1 }, null);
+    _ = try ac.add_candidate(Coord{ .row = 0, .col = 1 }, null);
+    _ = try ac.add_candidate(Coord{ .row = 0, .col = 1 }, null);
+    const c = try ac.get_candidate();
+    try testing.expectEqual(c.?.row, 0);
 }
