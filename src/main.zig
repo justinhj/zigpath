@@ -137,19 +137,19 @@ const AStarSearch = struct {
     }
 };
 const Candidates = union(enum) {
-    stackCandidates: DepthFirstSearch,
-    queueCandidates: BreadthFirstSearch,
-    aStarCandidates: AStarSearch,
+    stackCandidates: *DepthFirstSearch,
+    queueCandidates: *BreadthFirstSearch,
+    aStarCandidates: *AStarSearch,
 
     pub fn add_candidate(self: *Candidates, candidate: Coord, from: ?Coord) MazeErrorSet!void {
         return switch (self.*) {
-            inline else => |*case| return try case.add_candidate(candidate, from),
+            inline else => |*case| return try case.*.add_candidate(candidate, from),
         };
     }
 
     pub fn get_candidate(self: *Candidates) MazeErrorSet!?Coord {
         return switch (self.*) {
-            inline else => |*case| return case.get_candidate(),
+            inline else => |*case| return case.*.get_candidate(),
         };
     }
 };
@@ -374,39 +374,18 @@ pub fn main() anyerror!void {
     defer ac.deinit();
 
     var candidates: Candidates = switch (searchType) {
-        SearchType.DepthFirst => Candidates{ .stackCandidates = sc },
-        SearchType.BreadthFirst => Candidates{ .queueCandidates = qc },
-        SearchType.AStar => Candidates{ .aStarCandidates = ac },
+        SearchType.DepthFirst => Candidates{ .stackCandidates = &sc },
+        SearchType.BreadthFirst => Candidates{ .queueCandidates = &qc },
+        SearchType.AStar => Candidates{ .aStarCandidates = &ac },
     };
 
     try candidates.add_candidate(current.?, null);
-    // _ = try candidates.get_candidate();
 
     var solved = false;
     var failed = false;
 
-    // Create a HashMap from i32 to bool
-    var map = std.AutoHashMap(Coord, bool).init(allocator);
-    defer map.deinit();
-
-    // Insert some key-value pairs
-    try map.put(Coord{ .row = 10, .col = 20 }, true);
-    try map.put(Coord{ .row = 20, .col = 30 }, true);
-    try map.put(Coord{ .row = 30, .col = 40 }, true);
-
-    // Retrieve values
-    const value1 = map.get(Coord{ .row = 10, .col = 20 });
-
-    // Check if keys exist and print their values
-    if (value1) |v| std.debug.print("Key 1 has value: {}\n", .{v});
-
-    // Check if a key does not exist
-    const non_existent = map.get(Coord{ .row = 40, .col = 50 });
-    if (non_existent == null) {
-        std.debug.print("Key 4 does not exist in the map\n", .{});
-    }
     // Main game loop
-    while (false) { //  or !rl.windowShouldClose()) { // Detect window close button or ESC key
+    while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Expand the path search if it's not over already
         if (!failed and !solved and !current.?.equals(target)) {
             current = try candidates.get_candidate();
