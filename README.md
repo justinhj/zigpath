@@ -1,8 +1,10 @@
 # Zig Pathfinder
 
-Zig Pathfinder is a maze-solving application written in Zig. It visualizes the process of finding a path through a maze using either Depth-First Search (DFS) or Breadth-First Search (BFS). The application leverages the Raylib library for rendering the maze and the search process in real-time.
+This is a small self-learning project to learn Zig and to demonstrate three path finding algorithms visually.
 
-## Features
+1. Depth First Search
+2. Breadth First Search
+3. A* Search
 
 - **Maze Loading**: Loads a maze from a text file where walls are represented by `#` and empty paths by `.`.
 - **Pathfinding Algorithms**: Supports both Depth-First Search and Breadth-First Search algorithms.
@@ -29,9 +31,7 @@ Zig Pathfinder is a maze-solving application written in Zig. It visualizes the p
    ```
 
 3. Run the application:
-   ```sh
-   ./zig-out/bin/zig-pathfinder <file_path> <start_row> <start_col> <end_row> <end_col> <search_type>
-   ```
+See [Usage](#usage).
 
 ## Usage
 
@@ -44,15 +44,13 @@ The application requires the following command line arguments:
 - `<start_col>`: Starting column position in the maze.
 - `<end_row>`: Ending row position in the maze.
 - `<end_col>`: Ending column position in the maze.
-- `<search_type>`: Type of search algorithm to use (`depthfirst` or `breadthfirst`).
+- `<search_type>`: Type of search algorithm to use (`depthfirst`, `astar` or `breadthfirst`).
 
 ### Example
 
 ```sh
-./zig-out/bin/zig-pathfinder maze.txt 0 0 10 10 depthfirst
+./zig-out/bin/zig-pathfinder ./data/maze4 2 2 7 31 astar
 ```
-
-This command will load the maze from `maze.txt`, start the search from position (0, 0), and attempt to find a path to position (10, 10) using Depth-First Search.
 
 ## Maze File Format
 
@@ -72,12 +70,9 @@ Example maze file (`maze.txt`):
 
 ## Code Structure
 
-- **`StackCandidates` and `QueueCandidates`**: Implementations of stack and queue data structures for managing candidate positions during the search.
-- **`Candidates`**: A union type that can hold either a stack or queue of candidates, depending on the search type.
-- **`loadMaze`**: Function to load and parse the maze from a file.
-- **`makeVisited` and `freeVisited`**: Functions to manage the visited state of each cell in the maze.
-- **`getEmptyNeighbors`**: Function to retrieve empty neighboring cells of a given position.
-- **`main`**: The main function that initializes the application, handles command line arguments, and runs the search algorithm.
+- main.zig - The main program that orchestrates the pathfinding and visualization.
+- queue.zig - Queue implemented via a circular buffer.
+- binaryheap.zig - Binary heap used to provide efficient best first retrieval of next candidates.
 
 ## Resources
 
