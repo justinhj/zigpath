@@ -24,9 +24,10 @@ const DepthFirstSearch = struct {
         self.candidates.deinit();
     }
 
-    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!void {
+    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
         _ = from;
         try self.candidates.append(candidate);
+        return true;
     }
 
     fn get_candidate(self: *Self) MazeErrorSet!?Coord {
@@ -48,9 +49,10 @@ const BreadthFirstSearch = struct {
         self.candidates.deinit();
     }
 
-    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!void {
+    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
         _ = from;
         try self.candidates.enqueue(candidate);
+        return true;
     }
 
     fn get_candidate(self: *BreadthFirstSearch) MazeErrorSet!?Coord {
@@ -103,9 +105,14 @@ const AStarSearch = struct {
         return @intCast(@abs(a.row - b.row) + @abs(a.col - b.col));
     }
 
-    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!void {
+    // Add candidate handles adding a new candidate for the astar search by updating
+    // the openSet, gScore, and fScore.
+    // Since the cameFrom map is managed by the client of the Candidates struct,
+    // the code returns true if it should be updated (a new best node) or false
+    // otherwise.
+    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
         if (self.closedSet.contains(candidate)) {
-            return;
+            return false;
         }
         const priorCost: i32 = if (from) |f| self.gScore.get(f) orelse 0 else 0;
         const tentativeGScore = priorCost + 1;
@@ -115,15 +122,12 @@ const AStarSearch = struct {
         }
         const previousScore = self.gScore.get(candidate) orelse std.math.maxInt(i32);
         if (tentativeGScore >= previousScore) {
-            return;
+            return false;
         }
-        // TODO ???
-        // if (from) |f| {
-        //     try self.cameFrom.put(candidate, f);
-        // }
         _ = try self.gScore.put(candidate, tentativeGScore);
         const fScore = tentativeGScore + self.manhattanDistance(candidate, self.target);
         _ = try self.fScore.insert(fScoreEntry{ .coord = candidate, .score = fScore });
+        return true;
     }
 
     fn get_candidate(self: *AStarSearch) MazeErrorSet!?Coord {
@@ -141,7 +145,7 @@ const Candidates = union(enum) {
     queueCandidates: *BreadthFirstSearch,
     aStarCandidates: *AStarSearch,
 
-    pub fn add_candidate(self: *Candidates, candidate: Coord, from: ?Coord) MazeErrorSet!void {
+    pub fn add_candidate(self: *Candidates, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
         return switch (self.*) {
             inline else => |*case| return try case.*.add_candidate(candidate, from),
         };
@@ -379,7 +383,7 @@ pub fn main() anyerror!void {
         SearchType.AStar => Candidates{ .aStarCandidates = &ac },
     };
 
-    try candidates.add_candidate(current.?, null);
+    _ = try candidates.add_candidate(current.?, null);
 
     var solved = false;
     var failed = false;
@@ -397,8 +401,10 @@ pub fn main() anyerror!void {
 
                     for (0..emptyNeighbors) |n| {
                         visited[@intCast(neighbors[n].row)][@intCast(neighbors[n].col)] = Visit.Candidate;
-                        try candidates.add_candidate(neighbors[n], current);
-                        try cameFrom.put(neighbors[n], c);
+                        const newBest = try candidates.add_candidate(neighbors[n], current);
+                        if (newBest) {
+                            try cameFrom.put(neighbors[n], c);
+                        }
                     }
                 }
             } else {
