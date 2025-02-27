@@ -359,6 +359,8 @@ pub fn main() anyerror!void {
     rl.initWindow(windowWidth, windowHeight, "Grid search in Zig");
     defer rl.closeWindow(); // Close window and OpenGL context
 
+    const font = try rl.loadFont("data/mecha.png");
+
     rl.setTargetFPS(60);
 
     var current: ?Coord = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
@@ -430,7 +432,6 @@ pub fn main() anyerror!void {
 
         // Draw
         //----------------------------------------------------------------------------------
-        const frameTime = rl.getFrameTime();
 
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -444,8 +445,8 @@ pub fn main() anyerror!void {
             SearchType.AStar => "AStar",
         };
         const textPtr = std.mem.span(searchTypeText);
-        const frameTimeText = rl.textFormat("ZigPath - Search type %s Render time: %.3f ms", .{ textPtr.ptr, frameTime * 1000 });
-        rl.drawText(frameTimeText, leftMargin, rightMargin, 18, rl.Color.black);
+        const frameTimeText = rl.textFormat("ZigPath - Search type %s", .{textPtr.ptr});
+        rl.drawTextEx(font, frameTimeText, .{ .x = leftMargin, .y = rightMargin }, @as(f32, @floatFromInt(font.baseSize)) * 4.0, 8, rl.Color.black);
 
         const mapStartY = topMargin + 30;
         const mapEndY = windowHeight - bottomMargin;
