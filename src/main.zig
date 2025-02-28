@@ -114,7 +114,9 @@ const AStarSearch = struct {
         if (self.closedSet.contains(candidate)) {
             return false;
         }
-        const priorCost: i32 = if (from) |f| self.gScore.get(f) orelse 0 else 0;
+        // When from is null it means that the candidate is the start node
+        // so set the prior cost to -1.
+        const priorCost: i32 = if (from) |f| self.gScore.get(f) orelse 0 else -1;
         const tentativeGScore = priorCost + 1;
 
         if (!self.openSet.contains(candidate)) {
@@ -131,11 +133,13 @@ const AStarSearch = struct {
     }
 
     fn get_candidate(self: *AStarSearch) MazeErrorSet!?Coord {
-        const bestFScore = self.fScore.extractMin();
-        if (bestFScore) |entry| {
-            _ = self.openSet.remove(entry.coord);
-            _ = try self.closedSet.put(entry.coord, true);
-            return entry.coord;
+        if (self.openSet.count() > 0) {
+            const bestFScore = self.fScore.extractMin();
+            if (bestFScore) |entry| {
+                _ = self.openSet.remove(entry.coord);
+                _ = try self.closedSet.put(entry.coord, true);
+                return entry.coord;
+            }
         }
         return null;
     }
