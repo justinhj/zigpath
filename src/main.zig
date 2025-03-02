@@ -324,6 +324,14 @@ pub fn parseSearchType(search_type: []const u8) !SearchType {
     }
 }
 
+const State = enum {
+    SelectingStart,
+    SelectingEnd,
+    Running,
+    Solved,
+    Failed,
+};
+
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -333,17 +341,13 @@ pub fn main() anyerror!void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    if (args.len < 7) {
-        std.debug.print("Usage: {d} arg provided. Expected <file_path> <start_row> <start_col> <end_row> <end_col> <search_type (depthfirst, breadthfirst, astar)>\n", .{args.len});
+    if (args.len < 2) {
+        std.debug.print("Usage: {d} arg provided. Expected <file_path> <search_type (depthfirst, breadthfirst, astar)>\n", .{args.len});
         return error.InvalidArguments;
     }
 
     const file_path = args[1];
-    const start_row = try std.fmt.parseInt(usize, args[2], 10);
-    const start_col = try std.fmt.parseInt(usize, args[3], 10);
-    const end_row = try std.fmt.parseInt(usize, args[4], 10);
-    const end_col = try std.fmt.parseInt(usize, args[5], 10);
-    const searchType = try parseSearchType(args[6]);
+    const searchType = try parseSearchType(args[2]);
 
     const maze: [][]bool = try loadMaze(allocator, file_path);
     defer freeGrid(allocator, maze);
@@ -363,13 +367,13 @@ pub fn main() anyerror!void {
     rl.initWindow(windowWidth, windowHeight, "Grid search in Zig");
     defer rl.closeWindow(); // Close window and OpenGL context
 
-    // const font = try rl.loadFont("data/mecha.png");
     const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
 
     rl.setTargetFPS(60);
 
-    var current: ?Coord = Coord{ .row = @intCast(start_row), .col = @intCast(start_col) };
-    const target = Coord{ .row = @intCast(end_row), .col = @intCast(end_col) };
+    var state: State = .SelectingStart;
+    var start: ?Coord = null;
+    var end: ?Coord = null;
 
     var visited: [][]Visit = try makeVisited(allocator, maze);
     defer freeVisited(allocator, visited);
@@ -377,32 +381,72 @@ pub fn main() anyerror!void {
     var cameFrom = std.AutoHashMap(Coord, Coord).init(allocator);
     defer cameFrom.deinit();
 
-    var sc = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
-    defer sc.deinit();
-    var qc = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
-    defer qc.deinit();
-    var ac = try AStarSearch.init(allocator, target);
-    defer ac.deinit();
-
-    var candidates: Candidates = switch (searchType) {
-        SearchType.DepthFirst => Candidates{ .stackCandidates = &sc },
-        SearchType.BreadthFirst => Candidates{ .queueCandidates = &qc },
-        SearchType.AStar => Candidates{ .aStarCandidates = &ac },
-    };
-
-    _ = try candidates.add_candidate(current.?, null);
+    var candidates: Candidates = undefined;
 
     var solved = false;
     var failed = false;
 
+    var qc: BreadthFirstSearch = undefined;
+    var sc: DepthFirstSearch = undefined;
+    var ac: AStarSearch = undefined;
+
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
+        // Handle mouse clicks
+        if (rl.isMouseButtonPressed(rl.MouseButton.left)) {
+            const mouseX: usize = @intCast(rl.getMouseX());
+            const mouseY: usize = @intCast(rl.getMouseY());
+
+            const mapStartY = topMargin + 30;
+            const mapEndY = windowHeight - bottomMargin;
+
+            const mapStartX = leftMargin;
+            const mapEndX = windowWidth - rightMargin;
+
+            const availableWidth = mapEndX - mapStartX;
+            const availableHeight = mapEndY - mapStartY;
+
+            const maxCellSize = @min(availableWidth / maze[0].len, availableHeight / maze.len);
+
+            const gridWidth = maxCellSize * maze[0].len;
+            const gridHeight = maxCellSize * maze.len;
+
+            const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
+            const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
+
+            if (mouseX >= gridStartX and mouseX < gridStartX + gridWidth and
+                mouseY >= gridStartY and mouseY < gridStartY + gridHeight)
+            {
+                const col: i32 = @intCast(@divFloor(mouseX - gridStartX, maxCellSize));
+                const row: i32 = @intCast(@divFloor(mouseY - gridStartY, maxCellSize));
+
+                if (state == .SelectingStart) {
+                    start = Coord{ .row = row, .col = col };
+                    state = .SelectingEnd;
+                } else if (state == .SelectingEnd) {
+                    end = Coord{ .row = row, .col = col };
+                    state = .Running;
+
+                    sc = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
+                    qc = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
+                    ac = try AStarSearch.init(allocator, end.?);
+
+                    candidates = switch (searchType) {
+                        SearchType.DepthFirst => Candidates{ .stackCandidates = &sc },
+                        SearchType.BreadthFirst => Candidates{ .queueCandidates = &qc },
+                        SearchType.AStar => Candidates{ .aStarCandidates = &ac },
+                    };
+                    _ = try candidates.add_candidate(start.?, null);
+                }
+            }
+        }
+
         // Expand the path search if it's not over already
-        if (!failed and !solved and !current.?.equals(target)) {
-            current = try candidates.get_candidate();
+        if (state == .Running and !failed and !solved and !start.?.equals(end.?)) {
+            const current = try candidates.get_candidate();
             if (current) |c| {
                 visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
-                if (!c.equals(target)) {
+                if (!c.equals(end.?)) {
                     var neighbors: [4]Coord = undefined;
                     const emptyNeighbors = getEmptyNeighbors(visited, c, &neighbors);
 
@@ -416,13 +460,14 @@ pub fn main() anyerror!void {
                 }
             } else {
                 failed = true;
+                state = .Failed;
             }
-        } else if (!failed and solved == false) {
+        } else if (state == .Running and !failed and solved == false) {
             // Construct the path
             var path = std.ArrayList(Coord).init(allocator);
             defer path.deinit();
 
-            var currentPath: ?Coord = target;
+            var currentPath: ?Coord = end.?;
             while (currentPath != null) {
                 try path.append(currentPath.?);
                 currentPath = cameFrom.get(currentPath.?);
@@ -433,6 +478,7 @@ pub fn main() anyerror!void {
             }
 
             solved = true;
+            state = .Solved;
         }
 
         // Draw
@@ -452,7 +498,6 @@ pub fn main() anyerror!void {
         const textPtr = std.mem.span(searchTypeText);
         const frameTimeText = rl.textFormat("ZigPath - Search type %s", .{textPtr.ptr});
         rl.drawTextEx(font, frameTimeText, .{ .x = leftMargin, .y = topMargin }, @as(f32, @floatFromInt(font.baseSize)) * 1.4, 4, rl.Color.black);
-        // rl.drawTextEx(font, frameTimeText, .{ .x = leftMargin, .y = rightMargin }, @as(f32, @floatFromInt(font.baseSize)) * 4.0, 8, rl.Color.black);
 
         const mapStartY = topMargin + 30;
         const mapEndY = windowHeight - bottomMargin;
@@ -481,13 +526,10 @@ pub fn main() anyerror!void {
                 const height: i32 = @intCast(maxCellSize);
 
                 // Highlight start and end positions
-                if (current != null and rowIdx == current.?.row and colIdx == current.?.col) {
-                    rl.drawRectangle(x, y, width, height, rl.Color.yellow);
-                    rl.drawRectangleLines(x, y, width, height, rl.Color.black);
-                } else if (rowIdx == start_row and colIdx == start_col) {
+                if (start != null and rowIdx == start.?.row and colIdx == start.?.col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.green);
                     rl.drawRectangleLines(x, y, width, height, rl.Color.black);
-                } else if (rowIdx == end_row and colIdx == end_col) {
+                } else if (end != null and rowIdx == end.?.row and colIdx == end.?.col) {
                     rl.drawRectangle(x, y, width, height, rl.Color.red);
                     rl.drawRectangleLines(x, y, width, height, rl.Color.black);
                 } else {
@@ -517,8 +559,25 @@ pub fn main() anyerror!void {
             }
         }
 
-        //----------------------------------------------------------------------------------
+        // Display help text based on the current state
+        switch (state) {
+            .SelectingStart => {
+                const helpText = "Click on the grid to select the start cell";
+                rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = mapEndY + 10 }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
+            },
+            .SelectingEnd => {
+                const helpText = "Click on the grid to select the end cell";
+                rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = mapEndY + 10 }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
+            },
+            .Running, .Solved, .Failed => {
+                // No help text needed
+            },
+        }
     }
+
+    sc.deinit();
+    qc.deinit();
+    ac.deinit();
 }
 
 const testing = std.testing;
