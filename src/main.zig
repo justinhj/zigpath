@@ -561,18 +561,19 @@ pub fn main() anyerror!void {
             }
         }
 
+        const textVerticalOffset = 40;
         // Display help text based on the current state
         switch (state) {
             .SelectingStart => {
                 const helpText = "Click on the grid to select the start cell";
-                rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = mapEndY + 10 }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
+                rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = topMargin + textVerticalOffset }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
             },
             .SelectingEnd => {
                 const helpText = "Click on the grid to select the end cell";
-                rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = mapEndY + 10 }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
+                rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = topMargin + textVerticalOffset }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
             },
             .Running, .Solved, .Failed => {
-                // No help text needed
+                // TODO add appropriate status text
             },
         }
     }
