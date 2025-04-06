@@ -332,6 +332,49 @@ const State = enum {
     Failed,
 };
 
+pub fn resetSearchState(
+    allocator: std.mem.Allocator,
+    maze: []const []const bool,
+    visited: *[][]Visit,
+    cameFrom: *std.AutoHashMap(Coord, Coord),
+    candidates: *Candidates,
+    sc: *DepthFirstSearch,
+    qc: *BreadthFirstSearch,
+    ac: *AStarSearch,
+    searchType: SearchType
+) !void {
+    // Free and recreate visited array
+    freeVisited(allocator, visited.*);
+    visited.* = try makeVisited(allocator, maze);
+
+    // Clear cameFrom map
+    cameFrom.clearAndFree();
+
+    // Deinit previous candidates and create new ones
+    switch (searchType) {
+        SearchType.DepthFirst => sc.deinit(),
+        SearchType.BreadthFirst => qc.deinit(),
+        SearchType.AStar => ac.deinit(),
+    }
+
+    // Reinitialize candidates based on search type
+    switch (searchType) {
+        SearchType.DepthFirst => {
+            sc.* = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
+            candidates.* = Candidates{ .stackCandidates = sc };
+        },
+        SearchType.BreadthFirst => {
+            qc.* = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
+            candidates.* = Candidates{ .queueCandidates = qc };
+        },
+        SearchType.AStar => {
+            // Note: AStarSearch will be reinitialized with proper end coord when needed
+            ac.* = try AStarSearch.init(allocator, Coord{ .row = 0, .col = 0 });
+            candidates.* = Candidates{ .aStarCandidates = ac };
+        },
+    }
+}
+
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -390,6 +433,22 @@ pub fn main() anyerror!void {
     var sc: DepthFirstSearch = undefined;
     var ac: AStarSearch = undefined;
 
+    // Initialize candidates based on search type
+    switch (searchType) {
+        SearchType.DepthFirst => {
+            sc = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
+            candidates = Candidates{ .stackCandidates = &sc };
+        },
+        SearchType.BreadthFirst => {
+            qc = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
+            candidates = Candidates{ .queueCandidates = &qc };
+        },
+        SearchType.AStar => {
+            ac = try AStarSearch.init(allocator, Coord{ .row = 0, .col = 0 }); // Temporary target
+            candidates = Candidates{ .aStarCandidates = &ac };
+        },
+    }
+
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Handle mouse clicks
@@ -427,16 +486,22 @@ pub fn main() anyerror!void {
                     end = Coord{ .row = row, .col = col };
                     state = .Running;
 
-                    sc = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
-                    qc = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
-                    ac = try AStarSearch.init(allocator, end.?);
+                    // Reinitialize AStar with proper end coordinate
+                    if (searchType == .AStar) {
+                        ac.deinit();
+                        ac = try AStarSearch.init(allocator, end.?);
+                        candidates = Candidates{ .aStarCandidates = &ac };
+                    }
 
-                    candidates = switch (searchType) {
-                        SearchType.DepthFirst => Candidates{ .stackCandidates = &sc },
-                        SearchType.BreadthFirst => Candidates{ .queueCandidates = &qc },
-                        SearchType.AStar => Candidates{ .aStarCandidates = &ac },
-                    };
                     _ = try candidates.add_candidate(start.?, null);
+                } else if (state == .Solved or state == .Failed) {
+                    // Reset the search state and return to SelectingStart
+                    try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType);
+                    start = null;
+                    end = null;
+                    solved = false;
+                    failed = false;
+                    state = .SelectingStart;
                 }
             }
         }
@@ -572,16 +637,30 @@ pub fn main() anyerror!void {
                 const helpText = "Click on the grid to select the end cell";
                 rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = topMargin + textVerticalOffset }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
             },
-            .Running, .Solved, .Failed => {
-                // TODO add appropriate status text
+            .Running => {
+                const statusText = "Searching for path...";
+                rl.drawTextEx(font, statusText, .{ .x = leftMargin, .y = topMargin + textVerticalOffset }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
+            },
+            .Solved => {
+                const statusText = "Path found! Click to restart.";
+                rl.drawTextEx(font, statusText, .{ .x = leftMargin, .y = topMargin + textVerticalOffset }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
+            },
+            .Failed => {
+                const statusText = "No path found! Click to restart.";
+                rl.drawTextEx(font, statusText, .{ .x = leftMargin, .y = topMargin + textVerticalOffset }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
             },
         }
     }
 
-    sc.deinit();
-    qc.deinit();
-    ac.deinit();
+    // Cleanup
+    switch (searchType) {
+        SearchType.DepthFirst => sc.deinit(),
+        SearchType.BreadthFirst => qc.deinit(),
+        SearchType.AStar => ac.deinit(),
+    }
 }
+
+// ... [Rest of the code remains unchanged] ...
 
 const testing = std.testing;
 

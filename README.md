@@ -1,4 +1,4 @@
-# Zig Pathfinder
+# Zig Path
 
 This is a small self-learning project to learn Zig and to demonstrate three path finding algorithms visually.
 
