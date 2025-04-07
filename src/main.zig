@@ -144,18 +144,18 @@ const AStarSearch = struct {
         return null;
     }
 };
-const Candidates = union(enum) {
+const SearchCandidates = union(enum) {
     stackCandidates: *DepthFirstSearch,
     queueCandidates: *BreadthFirstSearch,
     aStarCandidates: *AStarSearch,
 
-    pub fn add_candidate(self: *Candidates, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
+    pub fn add_candidate(self: *SearchCandidates, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
         return switch (self.*) {
             inline else => |*case| return try case.*.add_candidate(candidate, from),
         };
     }
 
-    pub fn get_candidate(self: *Candidates) MazeErrorSet!?Coord {
+    pub fn get_candidate(self: *SearchCandidates) MazeErrorSet!?Coord {
         return switch (self.*) {
             inline else => |*case| return case.*.get_candidate(),
         };
@@ -332,17 +332,7 @@ const State = enum {
     Failed,
 };
 
-pub fn resetSearchState(
-    allocator: std.mem.Allocator,
-    maze: []const []const bool,
-    visited: *[][]Visit,
-    cameFrom: *std.AutoHashMap(Coord, Coord),
-    candidates: *Candidates,
-    sc: *DepthFirstSearch,
-    qc: *BreadthFirstSearch,
-    ac: *AStarSearch,
-    searchType: SearchType
-) !void {
+pub fn resetSearchState(allocator: std.mem.Allocator, maze: []const []const bool, visited: *[][]Visit, cameFrom: *std.AutoHashMap(Coord, Coord), candidates: *SearchCandidates, sc: *DepthFirstSearch, qc: *BreadthFirstSearch, ac: *AStarSearch, searchType: SearchType) !void {
     // Free and recreate visited array
     freeVisited(allocator, visited.*);
     visited.* = try makeVisited(allocator, maze);
@@ -361,16 +351,16 @@ pub fn resetSearchState(
     switch (searchType) {
         SearchType.DepthFirst => {
             sc.* = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
-            candidates.* = Candidates{ .stackCandidates = sc };
+            candidates.* = SearchCandidates{ .stackCandidates = sc };
         },
         SearchType.BreadthFirst => {
             qc.* = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
-            candidates.* = Candidates{ .queueCandidates = qc };
+            candidates.* = SearchCandidates{ .queueCandidates = qc };
         },
         SearchType.AStar => {
             // Note: AStarSearch will be reinitialized with proper end coord when needed
             ac.* = try AStarSearch.init(allocator, Coord{ .row = 0, .col = 0 });
-            candidates.* = Candidates{ .aStarCandidates = ac };
+            candidates.* = SearchCandidates{ .aStarCandidates = ac };
         },
     }
 }
@@ -424,7 +414,7 @@ pub fn main() anyerror!void {
     var cameFrom = std.AutoHashMap(Coord, Coord).init(allocator);
     defer cameFrom.deinit();
 
-    var candidates: Candidates = undefined;
+    var candidates: SearchCandidates = undefined;
 
     var solved = false;
     var failed = false;
@@ -437,15 +427,15 @@ pub fn main() anyerror!void {
     switch (searchType) {
         SearchType.DepthFirst => {
             sc = try DepthFirstSearch.init(allocator, maze.len * maze[0].len);
-            candidates = Candidates{ .stackCandidates = &sc };
+            candidates = SearchCandidates{ .stackCandidates = &sc };
         },
         SearchType.BreadthFirst => {
             qc = try BreadthFirstSearch.init(allocator, maze.len * maze[0].len);
-            candidates = Candidates{ .queueCandidates = &qc };
+            candidates = SearchCandidates{ .queueCandidates = &qc };
         },
         SearchType.AStar => {
             ac = try AStarSearch.init(allocator, Coord{ .row = 0, .col = 0 }); // Temporary target
-            candidates = Candidates{ .aStarCandidates = &ac };
+            candidates = SearchCandidates{ .aStarCandidates = &ac };
         },
     }
 
@@ -490,7 +480,7 @@ pub fn main() anyerror!void {
                     if (searchType == .AStar) {
                         ac.deinit();
                         ac = try AStarSearch.init(allocator, end.?);
-                        candidates = Candidates{ .aStarCandidates = &ac };
+                        candidates = SearchCandidates{ .aStarCandidates = &ac };
                     }
 
                     _ = try candidates.add_candidate(start.?, null);
