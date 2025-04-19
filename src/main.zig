@@ -374,13 +374,13 @@ pub fn main() anyerror!void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    if (args.len < 2) {
-        std.debug.print("Usage: {d} arg provided. Expected <file_path> <search_type (depthfirst, breadthfirst, astar)>\n", .{args.len});
+    if (args.len < 1) {
+        std.debug.print("Usage: {d} args provided. Expected maze <file_path>\n", .{args.len});
         return error.InvalidArguments;
     }
 
     const file_path = args[1];
-    var searchType = try parseSearchType(args[2]);
+    var searchType = SearchType.AStar;
 
     const maze: [][]bool = try loadMaze(allocator, file_path);
     defer freeGrid(allocator, maze);
@@ -490,7 +490,17 @@ pub fn main() anyerror!void {
                 // Reset candidates with new search type
                 try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType, previousSearchType);
             }
-            // Handle grid clicks
+            // Handle a click anywhere when in Failed or Succeeded states
+            else if (state == .Failed or state == .Solved) {
+                // Reset the search state and return to SelectingStart
+                try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType, searchType);
+                start = null;
+                end = null;
+                solved = false;
+                failed = false;
+                state = .SelectingStart;
+            }
+            // Handle clicks on the maze
             else if (mouseX >= @as(f32, @floatFromInt(gridStartX)) and mouseX < @as(f32, @floatFromInt(gridStartX + gridWidth)) and
                 mouseY >= @as(f32, @floatFromInt(gridStartY)) and mouseY < @as(f32, @floatFromInt(gridStartY + gridHeight)))
             {
@@ -512,14 +522,8 @@ pub fn main() anyerror!void {
                     }
 
                     _ = try candidates.add_candidate(start.?, null);
-                } else if (state == .Solved or state == .Failed) {
-                    // Reset the search state and return to SelectingStart
-                    try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType, searchType);
-                    start = null;
-                    end = null;
-                    solved = false;
-                    failed = false;
-                    state = .SelectingStart;
+                } else {
+                    std.debug.assert(state == .Running);
                 }
             }
         }
