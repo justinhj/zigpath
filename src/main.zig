@@ -332,7 +332,7 @@ const State = enum {
     Failed,
 };
 
-pub fn resetSearchState(allocator: std.mem.Allocator, maze: []const []const bool, visited: *[][]Visit, cameFrom: *std.AutoHashMap(Coord, Coord), candidates: *SearchCandidates, sc: *DepthFirstSearch, qc: *BreadthFirstSearch, ac: *AStarSearch, searchType: SearchType) !void {
+pub fn resetSearchState(allocator: std.mem.Allocator, maze: []const []const bool, visited: *[][]Visit, cameFrom: *std.AutoHashMap(Coord, Coord), candidates: *SearchCandidates, sc: *DepthFirstSearch, qc: *BreadthFirstSearch, ac: *AStarSearch, searchType: SearchType, previousSearchType: SearchType) !void {
     // Free and recreate visited array
     freeVisited(allocator, visited.*);
     visited.* = try makeVisited(allocator, maze);
@@ -341,7 +341,7 @@ pub fn resetSearchState(allocator: std.mem.Allocator, maze: []const []const bool
     cameFrom.clearAndFree();
 
     // Deinit previous candidates and create new ones
-    switch (searchType) {
+    switch (previousSearchType) {
         SearchType.DepthFirst => sc.deinit(),
         SearchType.BreadthFirst => qc.deinit(),
         SearchType.AStar => ac.deinit(),
@@ -380,7 +380,7 @@ pub fn main() anyerror!void {
     }
 
     const file_path = args[1];
-    const searchType = try parseSearchType(args[2]);
+    var searchType = try parseSearchType(args[2]);
 
     const maze: [][]bool = try loadMaze(allocator, file_path);
     defer freeGrid(allocator, maze);
@@ -398,7 +398,7 @@ pub fn main() anyerror!void {
     const bottomMargin = 20;
 
     rl.initWindow(windowWidth, windowHeight, "Grid search in Zig");
-    defer rl.closeWindow(); // Close window and OpenGL context
+    defer rl.closeWindow();
 
     const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
 
@@ -434,40 +434,68 @@ pub fn main() anyerror!void {
             candidates = SearchCandidates{ .queueCandidates = &qc };
         },
         SearchType.AStar => {
-            ac = try AStarSearch.init(allocator, Coord{ .row = 0, .col = 0 }); // Temporary target
+            ac = try AStarSearch.init(allocator, Coord{ .row = 0, .col = 0 });
             candidates = SearchCandidates{ .aStarCandidates = &ac };
         },
     }
 
     // Main game loop
-    while (!rl.windowShouldClose()) { // Detect window close button or ESC key
+    while (!rl.windowShouldClose()) {
+        // Calculate search type display area
+        const prefixText = "ZigPath - Search type ";
+        const fontSize = @as(f32, @floatFromInt(font.baseSize)) * 1.4;
+        const spacing = 4;
+        const prefixWidth = rl.measureTextEx(font, prefixText, fontSize, spacing).x;
+        const searchTypeX = leftMargin + prefixWidth;
+        const searchTypeText = switch (searchType) {
+            SearchType.DepthFirst => "Depth First",
+            SearchType.BreadthFirst => "Breadth First",
+            SearchType.AStar => "AStar",
+        };
+        const searchTypeWidth = rl.measureTextEx(font, searchTypeText, fontSize, spacing).x;
+        const searchTypeHeight = rl.measureTextEx(font, searchTypeText, fontSize, spacing).y;
+        const searchTypeRect = rl.Rectangle{
+            .x = searchTypeX,
+            .y = topMargin,
+            .width = searchTypeWidth,
+            .height = searchTypeHeight,
+        };
+
         // Handle mouse clicks
         if (rl.isMouseButtonPressed(rl.MouseButton.left)) {
-            const mouseX: usize = @intCast(rl.getMouseX());
-            const mouseY: usize = @intCast(rl.getMouseY());
+            const mouseX: f32 = @floatFromInt(rl.getMouseX());
+            const mouseY: f32 = @floatFromInt(rl.getMouseY());
 
             const mapStartY = topMargin + 30;
             const mapEndY = windowHeight - bottomMargin;
-
             const mapStartX = leftMargin;
             const mapEndX = windowWidth - rightMargin;
-
             const availableWidth = mapEndX - mapStartX;
             const availableHeight = mapEndY - mapStartY;
-
             const maxCellSize = @min(availableWidth / maze[0].len, availableHeight / maze.len);
-
             const gridWidth = maxCellSize * maze[0].len;
             const gridHeight = maxCellSize * maze.len;
-
             const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
             const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
 
-            if (mouseX >= gridStartX and mouseX < gridStartX + gridWidth and
-                mouseY >= gridStartY and mouseY < gridStartY + gridHeight)
+            // Check if click is on search type text during SelectingStart
+            if (state == .SelectingStart and rl.checkCollisionPointRec(.{ .x = mouseX, .y = mouseY }, searchTypeRect)) {
+                // Cycle to next search type
+                const previousSearchType = searchType;
+                searchType = switch (searchType) {
+                    .DepthFirst => .BreadthFirst,
+                    .BreadthFirst => .AStar,
+                    .AStar => .DepthFirst,
+                };
+                // Reset candidates with new search type
+                try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType, previousSearchType);
+            }
+            // Handle grid clicks
+            else if (mouseX >= @as(f32, @floatFromInt(gridStartX)) and mouseX < @as(f32, @floatFromInt(gridStartX + gridWidth)) and
+                mouseY >= @as(f32, @floatFromInt(gridStartY)) and mouseY < @as(f32, @floatFromInt(gridStartY + gridHeight)))
             {
-                const col: i32 = @intCast(@divFloor(mouseX - gridStartX, maxCellSize));
-                const row: i32 = @intCast(@divFloor(mouseY - gridStartY, maxCellSize));
+                const col: i32 = @as(i32, @intFromFloat(@divFloor(mouseX - @as(f32, @floatFromInt(gridStartX)), @as(f32, @floatFromInt(maxCellSize)))));
+                const row: i32 = @as(i32, @intFromFloat(@divFloor(mouseY - @as(f32, @floatFromInt(gridStartY)), @as(f32, @floatFromInt(maxCellSize)))));
 
                 if (state == .SelectingStart) {
                     start = Coord{ .row = row, .col = col };
@@ -486,7 +514,7 @@ pub fn main() anyerror!void {
                     _ = try candidates.add_candidate(start.?, null);
                 } else if (state == .Solved or state == .Failed) {
                     // Reset the search state and return to SelectingStart
-                    try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType);
+                    try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType, searchType);
                     start = null;
                     end = null;
                     solved = false;
@@ -540,49 +568,26 @@ pub fn main() anyerror!void {
 
         // Draw
         //----------------------------------------------------------------------------------
-
         rl.beginDrawing();
         defer rl.endDrawing();
 
         rl.clearBackground(rl.Color.light_gray);
 
-        // Display the frame time with "ZigPath - Search type" in black and search type in dark grey
-        const prefixText = "ZigPath - Search type ";
-        const searchTypeText: [*:0]const u8 = switch (searchType) {
-            SearchType.DepthFirst => "Depth First",
-            SearchType.BreadthFirst => "Breadth First",
-            SearchType.AStar => "AStar",
-        };
-        const textPtr = std.mem.span(searchTypeText);
-        const fontSize = @as(f32, @floatFromInt(font.baseSize)) * 1.4;
-        const spacing = 4;
-
         // Draw the prefix text in black
         rl.drawTextEx(font, prefixText, .{ .x = leftMargin, .y = topMargin }, fontSize, spacing, rl.Color.black);
 
-        // Calculate the x-position for the search type text
-        const prefixWidth = rl.measureTextEx(font, prefixText, fontSize, spacing).x;
-        const searchTypeX = leftMargin + prefixWidth;
-
         // Draw the search type text in dark grey
-        rl.drawTextEx(font, textPtr, .{ .x = searchTypeX, .y = topMargin }, fontSize, spacing, rl.Color.dark_gray);
+        rl.drawTextEx(font, searchTypeText, .{ .x = searchTypeX, .y = topMargin }, fontSize, spacing, rl.Color.dark_gray);
 
         const mapStartY = topMargin + 30;
         const mapEndY = windowHeight - bottomMargin;
-
         const mapStartX = leftMargin;
         const mapEndX = windowWidth - rightMargin;
-
-        // Calculate the maximum possible square size for the grid
         const availableWidth = mapEndX - mapStartX;
         const availableHeight = mapEndY - mapStartY;
-
         const maxCellSize = @min(availableWidth / maze[0].len, availableHeight / maze.len);
-
-        // Center the grid within the available space
         const gridWidth = maxCellSize * maze[0].len;
         const gridHeight = maxCellSize * maze.len;
-
         const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
         const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
 
@@ -631,7 +636,7 @@ pub fn main() anyerror!void {
         // Display help text based on the current state
         switch (state) {
             .SelectingStart => {
-                const helpText = "Click on the grid to select the start cell";
+                const helpText = "Click on the grid to select the start cell or click search type to change";
                 rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = topMargin + textVerticalOffset }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
             },
             .SelectingEnd => {
