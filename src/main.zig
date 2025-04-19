@@ -546,15 +546,26 @@ pub fn main() anyerror!void {
 
         rl.clearBackground(rl.Color.light_gray);
 
-        // Display the frame time
+        // Display the frame time with "ZigPath - Search type" in black and search type in dark grey
+        const prefixText = "ZigPath - Search type ";
         const searchTypeText: [*:0]const u8 = switch (searchType) {
             SearchType.DepthFirst => "Depth First",
             SearchType.BreadthFirst => "Breadth First",
             SearchType.AStar => "AStar",
         };
         const textPtr = std.mem.span(searchTypeText);
-        const frameTimeText = rl.textFormat("ZigPath - Search type %s", .{textPtr.ptr});
-        rl.drawTextEx(font, frameTimeText, .{ .x = leftMargin, .y = topMargin }, @as(f32, @floatFromInt(font.baseSize)) * 1.4, 4, rl.Color.black);
+        const fontSize = @as(f32, @floatFromInt(font.baseSize)) * 1.4;
+        const spacing = 4;
+
+        // Draw the prefix text in black
+        rl.drawTextEx(font, prefixText, .{ .x = leftMargin, .y = topMargin }, fontSize, spacing, rl.Color.black);
+
+        // Calculate the x-position for the search type text
+        const prefixWidth = rl.measureTextEx(font, prefixText, fontSize, spacing).x;
+        const searchTypeX = leftMargin + prefixWidth;
+
+        // Draw the search type text in dark grey
+        rl.drawTextEx(font, textPtr, .{ .x = searchTypeX, .y = topMargin }, fontSize, spacing, rl.Color.dark_gray);
 
         const mapStartY = topMargin + 30;
         const mapEndY = windowHeight - bottomMargin;
