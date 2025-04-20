@@ -31,7 +31,7 @@ const DepthFirstSearch = struct {
     }
 
     fn get_candidate(self: *Self) MazeErrorSet!?Coord {
-        return self.candidates.popOrNull();
+        return self.candidates.pop();
     }
 };
 
@@ -174,7 +174,7 @@ fn loadFileToString(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
 
 fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]bool {
     // Split the input into lines
-    var lines = std.mem.split(u8, input, "\n");
+    var lines = std.mem.splitScalar(u8, input, '\n');
     // Count the number of lines and the row length
     var row_count: usize = 0;
     var col_count: usize = 0;
@@ -196,7 +196,7 @@ fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]b
     }
 
     // Reset the iterator and parse the grid
-    lines = std.mem.split(u8, input, "\n");
+    lines = std.mem.splitScalar(u8, input, '\n');
     var row: usize = 0;
     while (lines.next()) |line| : (row += 1) {
         if (line.len > 0) {
