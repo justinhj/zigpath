@@ -390,14 +390,15 @@ pub fn main() anyerror!void {
 
     // Initialization
     //--------------------------------------------------------------------------------------
-    const windowWidth = 1200;
+    const windowWidth = 1600;
     const windowHeight = 900;
     const leftMargin = 20;
     const topMargin = 20;
     const rightMargin = 20;
     const bottomMargin = 20;
+    const mapStartMargin = 90;
 
-    rl.initWindow(windowWidth, windowHeight, "Grid search in Zig");
+    rl.initWindow(windowWidth, windowHeight, "ZigPath");
     defer rl.closeWindow();
 
     const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
@@ -466,7 +467,7 @@ pub fn main() anyerror!void {
             const mouseX: f32 = @floatFromInt(rl.getMouseX());
             const mouseY: f32 = @floatFromInt(rl.getMouseY());
 
-            const mapStartY = topMargin + 30;
+            const mapStartY = topMargin + mapStartMargin;
             const mapEndY = windowHeight - bottomMargin;
             const mapStartX = leftMargin;
             const mapEndX = windowWidth - rightMargin;
@@ -583,7 +584,7 @@ pub fn main() anyerror!void {
         // Draw the search type text in dark grey
         rl.drawTextEx(font, searchTypeText, .{ .x = searchTypeX, .y = topMargin }, fontSize, spacing, rl.Color.dark_gray);
 
-        const mapStartY = topMargin + 30;
+        const mapStartY = topMargin + mapStartMargin;
         const mapEndY = windowHeight - bottomMargin;
         const mapStartX = leftMargin;
         const mapEndX = windowWidth - rightMargin;
