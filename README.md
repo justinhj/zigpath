@@ -1,28 +1,27 @@
 # Zig Path
 
-This is a small self-learning project to learn Zig and to demonstrate three path finding algorithms visually.
+An interative pathfinding visualizer written in Zig using Raylib.
 
 1. Depth First Search
 2. Breadth First Search
 3. A* Search
 
 - **Maze Loading**: Loads a maze from a text file where walls are represented by `#` and empty paths by `.`.
-- **Pathfinding Algorithms**: Supports both Depth-First Search and Breadth-First Search algorithms.
+- **Pathfinding Algorithms**: Supports a range of common search algorithms.
 - **Real-Time Visualization**: Visualizes the search process in real-time using Raylib.
 - **Customizable Start and End Points**: Allows specifying the start and end positions for the pathfinding.
-- **Error Handling**: Includes robust error handling for invalid mazes and out-of-memory scenarios.
 
 ## Requirements
 
 - **Zig**: Ensure you have Zig installed on your system. You can download it from [ziglang.org](https://ziglang.org/).
-- **Raylib**: The application uses Raylib for rendering. Make sure Raylib is installed and properly linked.
+- **Raylib**: The application uses Raylib for rendering. It should be downloaded and built as part of the Zig build process.
 
 ## Installation
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/yourusername/zig-pathfinder.git
-   cd zig-pathfinder
+   git clone https://github.com/justinhj/zigpath.git
+   cd zigpath
    ```
 
 2. Build the project:
@@ -37,19 +36,14 @@ See [Usage](#usage).
 
 ### Command Line Arguments
 
-The application requires the following command line arguments:
+The application requires the following command line argument(s):
 
 - `<file_path>`: Path to the maze file.
-- `<start_row>`: Starting row position in the maze.
-- `<start_col>`: Starting column position in the maze.
-- `<end_row>`: Ending row position in the maze.
-- `<end_col>`: Ending column position in the maze.
-- `<search_type>`: Type of search algorithm to use (`depthfirst`, `astar` or `breadthfirst`).
 
 ### Example
 
 ```sh
-./zig-out/bin/zig-pathfinder ./data/maze4 2 2 7 31 astar
+./zig-out/bin/zigpath ./data/maze5
 ```
 
 ## Maze File Format
@@ -88,7 +82,7 @@ Thanks to Jerry Thomas for this article explaining some common ways to implement
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit a pull request with your changes.
+For bug or improvements feel free to make a pull request or open an issue.
 
 ## License
 
@@ -98,10 +92,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 - **Raylib**: A simple and easy-to-use library to enjoy videogames programming. [Raylib GitHub](https://github.com/raysan5/raylib)
 - **Zig**: A general-purpose programming language and toolchain for maintaining robust, optimal, and reusable software. [Zig GitHub](https://github.com/ziglang/zig)
-
-## Contact
-
-For any questions or suggestions, please open an issue on the GitHub repository or contact the maintainer directly.
 
 ---
 
