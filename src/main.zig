@@ -199,8 +199,10 @@ fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]b
     lines = std.mem.splitScalar(u8, input, '\n');
     var row: usize = 0;
     while (lines.next()) |line| : (row += 1) {
-        if (line.len > 0) {
-            for (line, 0..) |char, col| {
+        // Trim potential carriage return characters that might be left from Windows line endings (\r\n)
+        const cleaned_line = std.mem.trimRight(u8, line, "\r");
+        if (cleaned_line.len > 0) {
+            for (cleaned_line, 0..) |char, col| {
                 grid[row][col] = switch (char) {
                     '.' => false,
                     '#' => true,
