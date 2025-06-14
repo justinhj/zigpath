@@ -386,7 +386,7 @@ pub fn main() anyerror!void {
     defer freeGrid(allocator, maze);
 
     const stdout = std.io.getStdOut().writer();
-    try stdout.print("Maze loaded with {} rows\n", .{maze.len});
+    try stdout.print("Maze was loaded with {} rows\n", .{maze.len});
 
     // Initialization
     //--------------------------------------------------------------------------------------
