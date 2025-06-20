@@ -387,13 +387,21 @@ pub fn main() anyerror!void {
     const maze: [][]bool = try loadMaze(allocator, file_path);
     defer freeGrid(allocator, maze);
 
+    // Get i32 dimensions of the maze
+    const mazeWidth: i32 = @intCast(maze[0].len);
+    const mazeHeight: i32 = @intCast(maze.len);
+
     const stdout = std.io.getStdOut().writer();
     try stdout.print("Maze was loaded with {} rows\n", .{maze.len});
 
     // Initialization
     //--------------------------------------------------------------------------------------
-    const windowWidth = 1600;
-    const windowHeight = 900;
+    const windowWidth = rl.getScreenWidth();
+    const windowHeight = rl.getScreenHeight();
+
+    const i32windowWidth: i32 = @intCast(windowWidth);
+    const i32windowHeight: i32 = @intCast(windowHeight);
+
     const leftMargin = 20;
     const topMargin = 20;
     const rightMargin = 20;
@@ -472,14 +480,14 @@ pub fn main() anyerror!void {
             const mapStartY = topMargin + mapStartMargin;
             const mapEndY = windowHeight - bottomMargin;
             const mapStartX = leftMargin;
-            const mapEndX = windowWidth - rightMargin;
+            const mapEndX = i32windowWidth - rightMargin;
             const availableWidth = mapEndX - mapStartX;
             const availableHeight = mapEndY - mapStartY;
-            const maxCellSize = @min(availableWidth / maze[0].len, availableHeight / maze.len);
-            const gridWidth = maxCellSize * maze[0].len;
-            const gridHeight = maxCellSize * maze.len;
-            const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
-            const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
+            const maxCellSize = @min(@divFloor(availableWidth, mazeWidth), @divFloor(availableHeight, mazeHeight));
+            const gridWidth = maxCellSize * mazeWidth;
+            const gridHeight = maxCellSize * mazeHeight;
+            const gridStartX = mapStartX + @divFloor(availableWidth - gridWidth, 2);
+            const gridStartY = mapStartY + @divFloor(availableHeight - gridHeight, 2);
 
             // Check if click is on search type text during SelectingStart
             if (state == .SelectingStart and rl.checkCollisionPointRec(.{ .x = mouseX, .y = mouseY }, searchTypeRect)) {
@@ -587,14 +595,14 @@ pub fn main() anyerror!void {
         rl.drawTextEx(font, searchTypeText, .{ .x = searchTypeX, .y = topMargin }, fontSize, spacing, rl.Color.dark_gray);
 
         const mapStartY = topMargin + mapStartMargin;
-        const mapEndY = windowHeight - bottomMargin;
+        const mapEndY = i32windowHeight - bottomMargin;
         const mapStartX = leftMargin;
-        const mapEndX = windowWidth - rightMargin;
+        const mapEndX = i32windowHeight - rightMargin;
         const availableWidth = mapEndX - mapStartX;
         const availableHeight = mapEndY - mapStartY;
-        const maxCellSize = @min(availableWidth / maze[0].len, availableHeight / maze.len);
-        const gridWidth = maxCellSize * maze[0].len;
-        const gridHeight = maxCellSize * maze.len;
+        const maxCellSize = @min(availableWidth / mazeWidth, availableHeight / mazeHeight);
+        const gridWidth = maxCellSize * mazeWidth;
+        const gridHeight = maxCellSize * mazeHeight;
         const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
         const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
 
