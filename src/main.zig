@@ -392,15 +392,49 @@ pub fn main() anyerror!void {
 
     // Initialization
     //--------------------------------------------------------------------------------------
-    const windowWidth = 1600;
-    const windowHeight = 900;
+    // Get the primary monitor's dimensions
+    const monitorWidth = rl.getMonitorWidth(0);  // 0 is the primary monitor
+    const monitorHeight = rl.getMonitorHeight(0);
+    
+    // Define the desired window size and aspect ratio
+    const targetWidth: i32 = 1600;
+    const targetHeight: i32 = 900;
+    const targetAspectRatio = @as(f32, @floatFromInt(targetWidth)) / @as(f32, @floatFromInt(targetHeight));
+    
+    // Calculate maximum possible window size that fits the screen
+    var windowWidth = targetWidth;
+    var windowHeight = targetHeight;
+    
+    // If window is too wide for the screen, scale it down
+    if (windowWidth > monitorWidth) {
+        windowWidth = @max(800, monitorWidth - 100);  // Leave some margin
+        windowHeight = @intFromFloat(@as(f32, @floatFromInt(windowWidth)) / targetAspectRatio);
+        
+        // If the scaled height is still too tall, scale down further
+        if (windowHeight > monitorHeight) {
+            windowHeight = @max(450, monitorHeight - 100);
+            windowWidth = @intFromFloat(@as(f32, @floatFromInt(windowHeight)) * targetAspectRatio);
+        }
+    }
     const leftMargin = 20;
     const topMargin = 20;
     const rightMargin = 20;
     const bottomMargin = 20;
     const mapStartMargin = 90;
 
+    // Set window state before creating the window to avoid flickering
+    rl.setConfigFlags(.{});
+    
+    // Initialize the window with the calculated dimensions
     rl.initWindow(windowWidth, windowHeight, "ZigPath");
+    
+    // Center the window on the screen
+    const screenWidth = rl.getScreenWidth();
+    const screenHeight = rl.getScreenHeight();
+    rl.setWindowPosition(
+        @divFloor(screenWidth - windowWidth, 2),
+        @divFloor(screenHeight - windowHeight, 2)
+    );
     defer rl.closeWindow();
 
     const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
@@ -475,11 +509,14 @@ pub fn main() anyerror!void {
             const mapEndX = windowWidth - rightMargin;
             const availableWidth = mapEndX - mapStartX;
             const availableHeight = mapEndY - mapStartY;
-            const maxCellSize = @min(availableWidth / maze[0].len, availableHeight / maze.len);
-            const gridWidth = maxCellSize * maze[0].len;
-            const gridHeight = maxCellSize * maze.len;
-            const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
-            const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
+            const maxCellSize = @min(
+                @divFloor(availableWidth, @as(i32, @intCast(maze[0].len))),
+                @divFloor(availableHeight, @as(i32, @intCast(maze.len)))
+            );
+            const gridWidth = maxCellSize * @as(i32, @intCast(maze[0].len));
+            const gridHeight = maxCellSize * @as(i32, @intCast(maze.len));
+            const gridStartX = mapStartX + @divFloor(availableWidth - gridWidth, 2);
+            const gridStartY = mapStartY + @divFloor(availableHeight - gridHeight, 2);
 
             // Check if click is on search type text during SelectingStart
             if (state == .SelectingStart and rl.checkCollisionPointRec(.{ .x = mouseX, .y = mouseY }, searchTypeRect)) {
@@ -592,18 +629,21 @@ pub fn main() anyerror!void {
         const mapEndX = windowWidth - rightMargin;
         const availableWidth = mapEndX - mapStartX;
         const availableHeight = mapEndY - mapStartY;
-        const maxCellSize = @min(availableWidth / maze[0].len, availableHeight / maze.len);
-        const gridWidth = maxCellSize * maze[0].len;
-        const gridHeight = maxCellSize * maze.len;
-        const gridStartX = mapStartX + (availableWidth - gridWidth) / 2;
-        const gridStartY = mapStartY + (availableHeight - gridHeight) / 2;
+        const maxCellSize = @min(
+            @divFloor(availableWidth, @as(i32, @intCast(maze[0].len))),
+            @divFloor(availableHeight, @as(i32, @intCast(maze.len)))
+        );
+        const gridWidth = maxCellSize * @as(i32, @intCast(maze[0].len));
+        const gridHeight = maxCellSize * @as(i32, @intCast(maze.len));
+        const gridStartX = mapStartX + @divFloor(availableWidth - gridWidth, 2);
+        const gridStartY = mapStartY + @divFloor(availableHeight - gridHeight, 2);
 
         for (visited, 0..) |row, rowIdx| {
             for (row, 0..) |cell, colIdx| {
-                const x: i32 = @intCast(gridStartX + colIdx * maxCellSize);
-                const y: i32 = @intCast(gridStartY + rowIdx * maxCellSize);
-                const width: i32 = @intCast(maxCellSize);
-                const height: i32 = @intCast(maxCellSize);
+                const x = gridStartX + @as(i32, @intCast(colIdx)) * maxCellSize;
+                const y = gridStartY + @as(i32, @intCast(rowIdx)) * maxCellSize;
+                const width = maxCellSize;
+                const height = maxCellSize;
 
                 // Highlight start and end positions
                 if (start != null and rowIdx == start.?.row and colIdx == start.?.col) {
