@@ -390,26 +390,27 @@ pub fn main() anyerror!void {
     const stdout = std.io.getStdOut().writer();
     try stdout.print("Maze was loaded with {} rows\n", .{maze.len});
 
-    // Initialization
-    //--------------------------------------------------------------------------------------
-    // Get the primary monitor's dimensions
-    const monitorWidth = rl.getMonitorWidth(0);  // 0 is the primary monitor
+    // Unfortunately, raylib requires a window to be initialized before we can get monitor dimensions.
+    rl.initWindow(1, 1, "");
+    const monitorWidth = rl.getMonitorWidth(0); // 0 is the primary monitor
     const monitorHeight = rl.getMonitorHeight(0);
-    
+
+    rl.closeWindow();
+
     // Define the desired window size and aspect ratio
     const targetWidth: i32 = 1600;
     const targetHeight: i32 = 900;
     const targetAspectRatio = @as(f32, @floatFromInt(targetWidth)) / @as(f32, @floatFromInt(targetHeight));
-    
+
     // Calculate maximum possible window size that fits the screen
     var windowWidth = targetWidth;
     var windowHeight = targetHeight;
-    
+
     // If window is too wide for the screen, scale it down
     if (windowWidth > monitorWidth) {
-        windowWidth = @max(800, monitorWidth - 100);  // Leave some margin
+        windowWidth = @max(800, monitorWidth - 100); // Leave some margin
         windowHeight = @intFromFloat(@as(f32, @floatFromInt(windowWidth)) / targetAspectRatio);
-        
+
         // If the scaled height is still too tall, scale down further
         if (windowHeight > monitorHeight) {
             windowHeight = @max(450, monitorHeight - 100);
@@ -424,17 +425,14 @@ pub fn main() anyerror!void {
 
     // Set window state before creating the window to avoid flickering
     rl.setConfigFlags(.{});
-    
+
     // Initialize the window with the calculated dimensions
     rl.initWindow(windowWidth, windowHeight, "ZigPath");
-    
+
     // Center the window on the screen
     const screenWidth = rl.getScreenWidth();
     const screenHeight = rl.getScreenHeight();
-    rl.setWindowPosition(
-        @divFloor(screenWidth - windowWidth, 2),
-        @divFloor(screenHeight - windowHeight, 2)
-    );
+    rl.setWindowPosition(@divFloor(screenWidth - windowWidth, 2), @divFloor(screenHeight - windowHeight, 2));
     defer rl.closeWindow();
 
     const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
@@ -509,10 +507,7 @@ pub fn main() anyerror!void {
             const mapEndX = windowWidth - rightMargin;
             const availableWidth = mapEndX - mapStartX;
             const availableHeight = mapEndY - mapStartY;
-            const maxCellSize = @min(
-                @divFloor(availableWidth, @as(i32, @intCast(maze[0].len))),
-                @divFloor(availableHeight, @as(i32, @intCast(maze.len)))
-            );
+            const maxCellSize = @min(@divFloor(availableWidth, @as(i32, @intCast(maze[0].len))), @divFloor(availableHeight, @as(i32, @intCast(maze.len))));
             const gridWidth = maxCellSize * @as(i32, @intCast(maze[0].len));
             const gridHeight = maxCellSize * @as(i32, @intCast(maze.len));
             const gridStartX = mapStartX + @divFloor(availableWidth - gridWidth, 2);
@@ -629,10 +624,7 @@ pub fn main() anyerror!void {
         const mapEndX = windowWidth - rightMargin;
         const availableWidth = mapEndX - mapStartX;
         const availableHeight = mapEndY - mapStartY;
-        const maxCellSize = @min(
-            @divFloor(availableWidth, @as(i32, @intCast(maze[0].len))),
-            @divFloor(availableHeight, @as(i32, @intCast(maze.len)))
-        );
+        const maxCellSize = @min(@divFloor(availableWidth, @as(i32, @intCast(maze[0].len))), @divFloor(availableHeight, @as(i32, @intCast(maze.len))));
         const gridWidth = maxCellSize * @as(i32, @intCast(maze[0].len));
         const gridHeight = maxCellSize * @as(i32, @intCast(maze.len));
         const gridStartX = mapStartX + @divFloor(availableWidth - gridWidth, 2);
