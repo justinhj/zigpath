@@ -168,7 +168,8 @@ fn loadFileToString(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
 
     // Read the entire file into a string
     const file_size = try file.getEndPos();
-    const file_content = try file.readToEndAlloc(allocator, file_size);
+    if (file_size > std.math.maxInt(usize)) return error.FileTooLarge;
+    const file_content = try file.readToEndAlloc(allocator, @intCast(file_size));
     return file_content;
 }
 
