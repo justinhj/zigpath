@@ -377,12 +377,12 @@ pub fn main() anyerror!void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    if (args.len < 1) {
-        std.debug.print("Usage: {d} args provided. Expected maze <file_path>\n", .{args.len});
-        return error.InvalidArguments;
+    var file_path: []const u8 = undefined;
+    if (args.len < 2) {
+        file_path = "/defaultmaze";
+    } else {
+        file_path = args[1];
     }
-
-    const file_path = args[1];
     var searchType = SearchType.AStar;
 
     const maze: [][]bool = try loadMaze(allocator, file_path);
