@@ -13,18 +13,34 @@ pub fn build(b: *std.Build) !void {
     const raylib = raylib_dep.module("raylib");
     const raylib_artifact = raylib_dep.artifact("raylib");
 
-    //web exports are completely separate
+    // Define modules for both native and Emscripten builds
+    const queue_mod = b.createModule(.{
+        .root_source_file = b.path("src/queue.zig"),
+    });
+    const binary_heap_mod = b.createModule(.{
+        .root_source_file = b.path("src/binaryheap.zig"),
+    });
+
+    // Web exports are completely separate
     if (target.query.os_tag == .emscripten) {
         const exe_lib = try rlz.emcc.compileForEmscripten(b, "Project", "src/main.zig", target, optimize);
 
         exe_lib.linkLibrary(raylib_artifact);
         exe_lib.root_module.addImport("raylib", raylib);
+        // Add queue and BinaryHeap modules for Emscripten
+        exe_lib.root_module.addImport("queue", queue_mod);
+        exe_lib.root_module.addImport("BinaryHeap", binary_heap_mod);
 
         // Note that raylib itself is not actually added to the exe_lib output file, so it also needs to be linked with emscripten.
         const link_step = try rlz.emcc.linkWithEmscripten(b, &[_]*std.Build.Step.Compile{ exe_lib, raylib_artifact });
-        //this lets your program access files like "resources/my-image.png":
+        // This lets your program access files like "resources/my-image.png":
         link_step.addArg("--embed-file");
         link_step.addArg("resources/");
+        // link_step.addArg("-sNO_DEBUG=1");
+        // Add EXPORTED_FUNCTIONS to include realloc and emscripten_builtin_realloc
+        link_step.addArg("-sEXPORTED_FUNCTIONS=['_realloc','_emscripten_builtin_realloc','_malloc','_free']");
+        // Ensure Emscripten provides standard memory functions
+        link_step.addArg("-sMALLOC=emmalloc");
 
         b.getInstallStep().dependOn(&link_step.step);
         const run_step = try rlz.emcc.emscriptenRunStep(b);
@@ -36,15 +52,8 @@ pub fn build(b: *std.Build) !void {
 
     const exe = b.addExecutable(.{ .name = "zigpath", .root_source_file = b.path("src/main.zig"), .optimize = optimize, .target = target });
 
-    // Create private modules
-    const queue_mod = b.createModule(.{
-        .root_source_file = b.path("src/queue.zig"),
-    });
+    // Add private modules
     exe.root_module.addImport("queue", queue_mod);
-
-    const binary_heap_mod = b.createModule(.{
-        .root_source_file = b.path("src/binaryheap.zig"),
-    });
     exe.root_module.addImport("BinaryHeap", binary_heap_mod);
 
     exe.linkLibrary(raylib_artifact);
