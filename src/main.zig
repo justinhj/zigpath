@@ -430,9 +430,11 @@ pub fn main() anyerror!void {
     rl.initWindow(windowWidth, windowHeight, "ZigPath");
 
     // Center the window on the screen
-    const screenWidth = rl.getScreenWidth();
-    const screenHeight = rl.getScreenHeight();
-    rl.setWindowPosition(@divFloor(screenWidth - windowWidth, 2), @divFloor(screenHeight - windowHeight, 2));
+    const screenWidth = rl.getMonitorWidth(0);
+    const screenHeight = rl.getMonitorHeight(0);
+    if (screenWidth > 0 and screenHeight > 0) {
+        rl.setWindowPosition(@divFloor(screenWidth - windowWidth, 2), @divFloor(screenHeight - windowHeight, 2));
+    }
     defer rl.closeWindow();
 
     const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
