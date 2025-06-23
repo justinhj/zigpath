@@ -228,16 +228,15 @@ fn freeGrid(allocator: std.mem.Allocator, grid: [][]bool) void {
 
 pub fn loadMaze(allocator: std.mem.Allocator, file_path: []const u8) ![][]bool {
     rl.traceLog(rl.TraceLogLevel.info, "loadMaze", .{});
-    if (std.mem.eql(u8, file_path, "/defaultmaze")) {
-        // Use the default maze if no file path is provided
-        const slice: []const u8 = std.mem.span(defaultMaze);
-        return try parseMaze(allocator, slice);
-    }
-    return MazeErrorSet.InvalidMaze;
-    // const str = try loadFileToString(allocator, file_path);
-    // defer allocator.free(str);
-    // const grid = try parseMaze(allocator, str);
-    // return grid;
+    // if (std.mem.eql(u8, file_path, "/defaultmaze")) {
+    //     // Use the default maze if no file path is provided
+    //     const slice: []const u8 = std.mem.span(defaultMaze);
+    //     return try parseMaze(allocator, slice);
+    // }
+    const str = try loadFileToString(allocator, file_path);
+    defer allocator.free(str);
+    const grid = try parseMaze(allocator, str);
+    return grid;
 }
 
 const Coord = struct {
@@ -395,14 +394,15 @@ pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    const allocator = gpa.allocator();
+    // const allocator = gpa.allocator();
+    const allocator = rl.mem;
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
     var file_path: []const u8 = undefined;
     // if (args.len < 2) {
-    file_path = "/defaultmaze";
+    file_path = "/resources/defaultmaze";
     // } else {
     // file_path = args[1];
     // }
@@ -463,8 +463,8 @@ pub fn main() anyerror!void {
     defer rl.closeWindow();
 
     // Temporarily use the built in font
-    const font = try rl.getFontDefault();
-    // const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
+    // const font = try rl.getFontDefault();
+    const font = try rl.loadFont("/resources/TechnoRaceItalic-eZRWe.otf");
 
     rl.setTargetFPS(60);
 
