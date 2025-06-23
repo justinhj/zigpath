@@ -36,11 +36,14 @@ pub fn build(b: *std.Build) !void {
         // This lets your program access files like "resources/my-image.png":
         link_step.addArg("--embed-file");
         link_step.addArg("resources/");
+        link_step.addArg("-sINITIAL_MEMORY=64MB");
+        link_step.addArg("-sALLOW_MEMORY_GROWTH=1");
+        
         // link_step.addArg("-sNO_DEBUG=1");
         // Add EXPORTED_FUNCTIONS to include realloc and emscripten_builtin_realloc
-        link_step.addArg("-sEXPORTED_FUNCTIONS=['_realloc','_emscripten_builtin_realloc','_malloc','_free']");
+        // link_step.addArg("-sEXPORTED_FUNCTIONS=['_realloc','_emscripten_builtin_realloc','_malloc','_free']");
         // Ensure Emscripten provides standard memory functions
-        link_step.addArg("-sMALLOC=emmalloc");
+        // link_step.addArg("-sMALLOC=emmalloc");
 
         b.getInstallStep().dependOn(&link_step.step);
         const run_step = try rlz.emcc.emscriptenRunStep(b);

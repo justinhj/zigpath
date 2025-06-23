@@ -175,11 +175,12 @@ fn loadFileToString(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
 
 fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]bool {
     // Split the input into lines
+    rl.traceLog(rl.TraceLogLevel.info, "parseMaze", .{});
     var lines = std.mem.splitScalar(u8, input, '\n');
-    // Count the number of lines and the row length
     var row_count: usize = 0;
     var col_count: usize = 0;
     while (lines.next()) |line| {
+        rl.traceLog(rl.TraceLogLevel.info, "parseLine", .{});
         if (line.len > 0) {
             row_count += 1;
             if (col_count == 0) {
@@ -191,7 +192,9 @@ fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]b
     }
 
     // Allocate the 2D array
+    rl.traceLog(rl.TraceLogLevel.info, "parseMaze allocate {} rows", .{row_count});
     var grid = allocator.alloc([]bool, row_count) catch return MazeErrorSet.OutOfMemory;
+    rl.traceLog(rl.TraceLogLevel.info, "parseMaze allocated", .{});
     for (grid) |*row| {
         row.* = allocator.alloc(bool, col_count) catch return MazeErrorSet.OutOfMemory;
     }
@@ -224,10 +227,17 @@ fn freeGrid(allocator: std.mem.Allocator, grid: [][]bool) void {
 }
 
 pub fn loadMaze(allocator: std.mem.Allocator, file_path: []const u8) ![][]bool {
-    const str = try loadFileToString(allocator, file_path);
-    defer allocator.free(str);
-    const grid = try parseMaze(allocator, str);
-    return grid;
+    rl.traceLog(rl.TraceLogLevel.info, "loadMaze", .{});
+    if (std.mem.eql(u8, file_path, "/defaultmaze")) {
+        // Use the default maze if no file path is provided
+        const slice: []const u8 = std.mem.span(defaultMaze);
+        return try parseMaze(allocator, slice);
+    }
+    return MazeErrorSet.InvalidMaze;
+    // const str = try loadFileToString(allocator, file_path);
+    // defer allocator.free(str);
+    // const grid = try parseMaze(allocator, str);
+    // return grid;
 }
 
 const Coord = struct {
@@ -368,6 +378,19 @@ pub fn resetSearchState(allocator: std.mem.Allocator, maze: []const []const bool
     }
 }
 
+// default maze
+const defaultMaze: [*:0]const u8 =
+    "....#.....\n" ++
+    ".......###\n" ++
+    ".......#..\n" ++
+    "..######..\n" ++
+    "..#....#..\n" ++
+    "..#.......\n" ++
+    ".##.......\n" ++
+    "........#.\n" ++
+    "#.........\n" ++
+    "......#...\n";
+
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -378,11 +401,11 @@ pub fn main() anyerror!void {
     defer std.process.argsFree(allocator, args);
 
     var file_path: []const u8 = undefined;
-    if (args.len < 2) {
-        file_path = "/defaultmaze";
-    } else {
-        file_path = args[1];
-    }
+    // if (args.len < 2) {
+    file_path = "/defaultmaze";
+    // } else {
+    // file_path = args[1];
+    // }
     var searchType = SearchType.AStar;
 
     const maze: [][]bool = try loadMaze(allocator, file_path);
@@ -391,6 +414,7 @@ pub fn main() anyerror!void {
     const stdout = std.io.getStdOut().writer();
     try stdout.print("Maze was loaded with {} rows\n", .{maze.len});
 
+    rl.traceLog(rl.TraceLogLevel.info, "loaded maze", .{});
     // Unfortunately, raylib requires a window to be initialized before we can get monitor dimensions.
     rl.initWindow(1, 1, "");
     const monitorWidth = rl.getMonitorWidth(0); // 0 is the primary monitor
@@ -438,7 +462,9 @@ pub fn main() anyerror!void {
     }
     defer rl.closeWindow();
 
-    const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
+    // Temporarily use the built in font
+    const font = try rl.getFontDefault();
+    // const font = try rl.loadFont("data/TechnoRaceItalic-eZRWe.otf");
 
     rl.setTargetFPS(60);
 
