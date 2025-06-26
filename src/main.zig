@@ -391,21 +391,17 @@ const defaultMaze: [*:0]const u8 =
     "......#...\n";
 
 pub fn main() anyerror!void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-
-    // const allocator = gpa.allocator();
     const allocator = rl.mem;
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
     var file_path: []const u8 = undefined;
-    // if (args.len < 2) {
-    file_path = "/resources/defaultmaze";
-    // } else {
-    // file_path = args[1];
-    // }
+    if (args.len < 2) {
+        file_path = "/resources/defaultmaze";
+    } else {
+        file_path = args[1];
+    }
     var searchType = SearchType.AStar;
 
     const maze: [][]bool = try loadMaze(allocator, file_path);
@@ -462,9 +458,10 @@ pub fn main() anyerror!void {
     }
     defer rl.closeWindow();
 
-    // Temporarily use the built in font
-    // const font = try rl.getFontDefault();
-    const font = try rl.loadFont("/resources/TechnoRaceItalic-eZRWe.otf");
+    const font = rl.loadFont("resources/TechnoRaceItalic-eZRWe.otf") catch |e| {
+        std.debug.print("Failed to load font: {}\n", .{e});
+        return e;
+    };
 
     rl.setTargetFPS(60);
 

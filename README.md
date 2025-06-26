@@ -43,7 +43,7 @@ The application requires the following command line argument(s):
 ### Example
 
 ```sh
-./zig-out/bin/zigpath ./data/maze5
+./zig-out/bin/zigpath ./resources/maze5
 ```
 
 ## Maze File Format
