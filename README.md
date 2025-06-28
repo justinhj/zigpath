@@ -18,6 +18,10 @@ An interative pathfinding visualizer written in Zig using Raylib.
 
 ## Installation
 
+### Run locally
+
+To build for your native platform, follow these steps:
+
 1. Clone the repository:
    ```sh
    git clone https://github.com/justinhj/zigpath.git
@@ -31,6 +35,14 @@ An interative pathfinding visualizer written in Zig using Raylib.
 
 3. Run the application:
 See [Usage](#usage).
+
+### Run in the browser
+
+To build the wasm/Emscripten version, ensure you have the Emscripten SDK installed. You can follow the instructions at [Emscripten](https://emscripten.org/docs/getting_started/downloads.html).
+
+``` sh
+zig build -Dtarget=wasm32-emscripten -Doptimize=ReleaseSmall --sysroot ${EMSDK}/upstream/emscripten
+```
 
 ## Usage
 
@@ -60,6 +72,13 @@ Example maze file (`maze.txt`):
 #.#.#.#.#
 .#.#.#.#.
 #.#.#.#.#
+```
+
+### Example of running in the browser
+
+```sh
+cd zig-out/html
+emrun --browser safari index.html
 ```
 
 ## Code Structure
