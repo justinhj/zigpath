@@ -180,7 +180,6 @@ fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]b
     var row_count: usize = 0;
     var col_count: usize = 0;
     while (lines.next()) |line| {
-        rl.traceLog(rl.TraceLogLevel.info, "parseLine", .{});
         if (line.len > 0) {
             row_count += 1;
             if (col_count == 0) {
