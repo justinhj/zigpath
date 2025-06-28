@@ -1,5 +1,6 @@
 const rl = @import("raylib");
 const std = @import("std");
+const maze_manifest = @import("maze_manifest");
 
 const queue = @import("queue");
 const binaryHeap = @import("BinaryHeap");
@@ -470,22 +471,6 @@ pub fn main() anyerror!void {
     var sc: DepthFirstSearch = undefined;
     var ac: AStarSearch = undefined;
 
-    // --- Load Maze Files ---
-    var maze_files = std.ArrayList([]const u8).init(allocator);
-    defer maze_files.deinit();
-    var dir = try std.fs.cwd().openDir("resources", .{});
-    defer dir.close();
-    var walker = try dir.walk(allocator);
-    defer walker.deinit();
-
-    while (try walker.next()) |entry| {
-        if (entry.kind == .file) {
-            if (!std.mem.endsWith(u8, entry.basename, ".otf")) {
-                try maze_files.append(try allocator.dupe(u8, entry.basename));
-            }
-        }
-    }
-
     // --- Main Game Loop ---
     while (!rl.windowShouldClose()) {
         // --- Handle Mouse Clicks ---
@@ -496,7 +481,7 @@ pub fn main() anyerror!void {
             if (state == .SelectingMaze) {
                 var buf: [64]u8 = undefined;
                 const mazeListY: f32 = topMargin + 50;
-                for (maze_files.items, 0..) |maze_file, i| {
+                for (maze_manifest.maze_files, 0..) |maze_file, i| {
                     const maze_text_z = try std.fmt.bufPrintZ(&buf, "{s}", .{maze_file});
                     const maze_text_width = rl.measureTextEx(font, maze_text_z, 20, 2).x;
                     const maze_text_height = rl.measureTextEx(font, maze_text_z, 20, 2).y;
@@ -661,7 +646,7 @@ pub fn main() anyerror!void {
             rl.drawTextEx(font, helpText, .{ .x = leftMargin, .y = topMargin }, @as(f32, @floatFromInt(font.baseSize)) * 1.0, 2, rl.Color.black);
             var buf: [64]u8 = undefined;
             const mazeListY: f32 = topMargin + 50;
-            for (maze_files.items, 0..) |maze_file, i| {
+            for (maze_manifest.maze_files, 0..) |maze_file, i| {
                 const maze_text_z = try std.fmt.bufPrintZ(&buf, "{s}", .{maze_file});
                 rl.drawTextEx(font, maze_text_z, .{ .x = leftMargin, .y = mazeListY + @as(f32, @floatFromInt(i)) * 30 }, 20, 2, rl.Color.black);
             }

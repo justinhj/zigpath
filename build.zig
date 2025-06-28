@@ -1,7 +1,40 @@
 const std = @import("std");
 const rlz = @import("raylib_zig");
 
+// This function is called from the build script to generate a zig file
+// containing a list of all the maze files in the resources directory.
+fn generateMazeManifest() !void {
+    var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{});
+    defer file.close();
+
+    var bw = std.io.bufferedWriter(file.writer());
+    const writer = bw.writer();
+
+    try writer.writeAll("pub const maze_files = &[_][]const u8{\n");
+
+    var dir = try std.fs.cwd().openDir("resources", .{});
+    defer dir.close();
+
+    var it = dir.iterate();
+    while (try it.next()) |entry| {
+        if (entry.kind == .file) {
+            if (!std.mem.endsWith(u8, entry.name, ".otf")) {
+                try writer.print("    \"{s}\",\n", .{entry.name});
+            }
+        }
+    }
+
+    try writer.writeAll("};\n");
+    try bw.flush();
+}
+
 pub fn build(b: *std.Build) !void {
+    // Generate the maze manifest file before building the project.
+    generateMazeManifest() catch |err| {
+        std.debug.print("Failed to generate maze manifest: {any}\n", .{err});
+        return;
+    };
+
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -20,6 +53,9 @@ pub fn build(b: *std.Build) !void {
     const binary_heap_mod = b.createModule(.{
         .root_source_file = b.path("src/binaryheap.zig"),
     });
+    const maze_manifest_mod = b.createModule(.{
+        .root_source_file = b.path("src/maze_manifest.zig"),
+    });
 
     // Web exports are completely separate
     if (target.query.os_tag == .emscripten) {
@@ -30,6 +66,7 @@ pub fn build(b: *std.Build) !void {
         // Add queue and BinaryHeap modules for Emscripten
         exe_lib.root_module.addImport("queue", queue_mod);
         exe_lib.root_module.addImport("BinaryHeap", binary_heap_mod);
+        exe_lib.root_module.addImport("maze_manifest", maze_manifest_mod);
 
         // Note that raylib itself is not actually added to the exe_lib output file, so it also needs to be linked with emscripten.
         const link_step = try rlz.emcc.linkWithEmscripten(b, &[_]*std.Build.Step.Compile{ exe_lib, raylib_artifact });
@@ -39,12 +76,6 @@ pub fn build(b: *std.Build) !void {
         link_step.addArg("-sINITIAL_MEMORY=64MB");
         link_step.addArg("-sALLOW_MEMORY_GROWTH=1");
         
-        // link_step.addArg("-sNO_DEBUG=1");
-        // Add EXPORTED_FUNCTIONS to include realloc and emscripten_builtin_realloc
-        // link_step.addArg("-sEXPORTED_FUNCTIONS=['_realloc','_emscripten_builtin_realloc','_malloc','_free']");
-        // Ensure Emscripten provides standard memory functions
-        // link_step.addArg("-sMALLOC=emmalloc");
-
         b.getInstallStep().dependOn(&link_step.step);
         const run_step = try rlz.emcc.emscriptenRunStep(b);
         run_step.step.dependOn(&link_step.step);
@@ -58,6 +89,7 @@ pub fn build(b: *std.Build) !void {
     // Add private modules
     exe.root_module.addImport("queue", queue_mod);
     exe.root_module.addImport("BinaryHeap", binary_heap_mod);
+    exe.root_module.addImport("maze_manifest", maze_manifest_mod);
 
     exe.linkLibrary(raylib_artifact);
     exe.root_module.addImport("raylib", raylib);
@@ -79,6 +111,7 @@ pub fn build(b: *std.Build) !void {
     test_exe.root_module.addImport("queue", queue_mod);
     test_exe.root_module.addImport("BinaryHeap", binary_heap_mod);
     test_exe.root_module.addImport("raylib", raylib);
+    test_exe.root_module.addImport("maze_manifest", maze_manifest_mod);
 
     const test_cmd = b.addRunArtifact(test_exe);
     const test_step = b.step("test", "Run tests");
