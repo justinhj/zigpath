@@ -4,6 +4,10 @@ const rlz = @import("raylib_zig");
 // This function is called from the build script to generate a zig file
 // containing a list of all the maze files in the resources directory.
 fn generateMazeManifest() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
+
     var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{});
     defer file.close();
 
@@ -15,18 +19,44 @@ fn generateMazeManifest() !void {
     var dir = try std.fs.cwd().openDir("resources", .{});
     defer dir.close();
 
+    var maze_files = std.ArrayList([]const u8).init(allocator);
+    defer {
+        for (maze_files.items) |item| {
+            allocator.free(item);
+        }
+        maze_files.deinit();
+    }
+
     var it = dir.iterate();
     while (try it.next()) |entry| {
         if (entry.kind == .file) {
             if (!std.mem.endsWith(u8, entry.name, ".otf")) {
-                try writer.print("    \"{s}\",\n", .{entry.name});
+                try maze_files.append(try allocator.dupe(u8, entry.name));
             }
         }
+    }
+
+    // Simple bubble sort to avoid compiler issues with std.mem.sort
+    for (maze_files.items, 0..) |_, i| {
+        for (maze_files.items, 0..) |_, j| {
+            if (j > i) {
+                if (std.mem.lessThan(u8, maze_files.items[j], maze_files.items[i])) {
+                    const temp = maze_files.items[i];
+                    maze_files.items[i] = maze_files.items[j];
+                    maze_files.items[j] = temp;
+                }
+            }
+        }
+    }
+
+    for (maze_files.items) |maze_file| {
+        try writer.print("    \"{s}\",\n", .{maze_file});
     }
 
     try writer.writeAll("};\n");
     try bw.flush();
 }
+
 
 pub fn build(b: *std.Build) !void {
     // Generate the maze manifest file before building the project.
