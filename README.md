@@ -1,23 +1,28 @@
 # Zig Path
 
-<img width="647" alt="Image" src="https://github.com/user-attachments/assets/11ec61a9-016a-48ec-bb30-c9937420da6f" />
-<img width="1372" alt="Image" src="https://github.com/user-attachments/assets/fb6606cb-d620-46fd-a776-44a6ecd90dbf" />
+An animated pathfinder written in Zig using Raylib, allowing you compare visually the way different algorithms traverse a maze.
 
-An interative pathfinding visualizer written in Zig using Raylib.
+## Algorithms implemented
 
 1. Depth First Search
 2. Breadth First Search
 3. A* Search
 
-- **Maze Loading**: Loads a maze from a text file where walls are represented by `#` and empty paths by `.`.
+<img width="647" alt="Image" src="https://github.com/user-attachments/assets/11ec61a9-016a-48ec-bb30-c9937420da6f" />
+<img width="1372" alt="Image" src="https://github.com/user-attachments/assets/fb6606cb-d620-46fd-a776-44a6ecd90dbf" />
+
+## Features
+
+- **Maze Loading**: Add ascii mazes to the resources folder and choose one at load time.
 - **Pathfinding Algorithms**: Supports a range of common search algorithms.
 - **Real-Time Visualization**: Visualizes the search process in real-time using Raylib.
 - **Customizable Start and End Points**: Allows specifying the start and end positions for the pathfinding.
 
 ## Requirements
 
-- **Zig**: Ensure you have Zig installed on your system. You can download it from [ziglang.org](https://ziglang.org/).
-- **Raylib**: The application uses Raylib for rendering. It should be downloaded and built as part of the Zig build process.
+- **Zig**: Ensure you have Zig installed on your system. You can download it from [ziglang.org](https://ziglang.org/). It must be version 0.14.0 or later.
+- **Raylib**: The application uses Raylib for rendering. It will be downloaded and built as part of the Zig build process.
+- **Emscripten**: For building the WebAssembly version, you need the Emscripten SDK. Follow the instructions at [Emscripten](https://emscripten.org/docs/getting_started/downloads.html). **3.1.50 is required**.
 
 ## Installation
 
@@ -115,6 +120,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - **Raylib**: A simple and easy-to-use library to enjoy videogames programming. [Raylib GitHub](https://github.com/raysan5/raylib)
 - **Zig**: A general-purpose programming language and toolchain for maintaining robust, optimal, and reusable software. [Zig GitHub](https://github.com/ziglang/zig)
 
----
-
-Enjoy exploring mazes with Zig Pathfinder! 🚀
