@@ -1,5 +1,8 @@
 # Zig Path
 
+<img width="647" alt="Image" src="https://github.com/user-attachments/assets/11ec61a9-016a-48ec-bb30-c9937420da6f" />
+<img width="1372" alt="Image" src="https://github.com/user-attachments/assets/fb6606cb-d620-46fd-a776-44a6ecd90dbf" />
+
 An interative pathfinding visualizer written in Zig using Raylib.
 
 1. Depth First Search
