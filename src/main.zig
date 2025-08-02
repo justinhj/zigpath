@@ -622,38 +622,41 @@ pub fn main() anyerror!void {
 
         // --- Expand Path Search ---
         if (state == .Running and !failed and !solved) {
-            const current = try candidates.get_candidate();
-            if (current) |c| {
-                if (c.equals(end.?)) {
-                    var path = std.ArrayList(Coord).init(allocator);
-                    defer path.deinit();
-                    var currentPath: ?Coord = end.?;
-                    while (currentPath != null) {
-                        try path.append(currentPath.?);
-                        currentPath = cameFrom.get(currentPath.?);
-                    }
-                    for (path.items) |coord| {
-                        visited[@intCast(coord.row)][@intCast(coord.col)] = Visit.Path;
-                    }
-                    solved = true;
-                    state = .Solved;
-                } else {
-                    visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
-                    if (!c.equals(end.?)) {
-                        var neighbors: [4]Coord = undefined;
-                        const emptyNeighbors = getEmptyNeighbors(visited, c, &neighbors);
-                        for (0..emptyNeighbors) |n| {
-                            visited[@intCast(neighbors[n].row)][@intCast(neighbors[n].col)] = Visit.Candidate;
-                            const newBest = try candidates.add_candidate(neighbors[n], current);
-                            if (newBest) {
-                                try cameFrom.put(neighbors[n], c);
+            var i: u32 = 0;
+            while (i < searchSpeed and !failed and !solved) : (i += 1) {
+                const current = try candidates.get_candidate();
+                if (current) |c| {
+                    if (c.equals(end.?)) {
+                        var path = std.ArrayList(Coord).init(allocator);
+                        defer path.deinit();
+                        var currentPath: ?Coord = end.?;
+                        while (currentPath != null) {
+                            try path.append(currentPath.?);
+                            currentPath = cameFrom.get(currentPath.?);
+                        }
+                        for (path.items) |coord| {
+                            visited[@intCast(coord.row)][@intCast(coord.col)] = Visit.Path;
+                        }
+                        solved = true;
+                        state = .Solved;
+                    } else {
+                        visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
+                        if (!c.equals(end.?)) {
+                            var neighbors: [4]Coord = undefined;
+                            const emptyNeighbors = getEmptyNeighbors(visited, c, &neighbors);
+                            for (0..emptyNeighbors) |n| {
+                                visited[@intCast(neighbors[n].row)][@intCast(neighbors[n].col)] = Visit.Candidate;
+                                const newBest = try candidates.add_candidate(neighbors[n], current);
+                                if (newBest) {
+                                    try cameFrom.put(neighbors[n], c);
+                                }
                             }
                         }
                     }
+                } else {
+                    failed = true;
+                    state = .Failed;
                 }
-            } else {
-                failed = true;
-                state = .Failed;
             }
         }
 
