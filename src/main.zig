@@ -404,6 +404,9 @@ pub fn main() anyerror!void {
         file_path = args[1];
     }
     var searchType = SearchType.AStar;
+    var searchSpeedIndex: usize = 0;
+    const searchSpeeds = [_]u32{ 1, 10, 100, 1000, 10000 };
+    var searchSpeed = searchSpeeds[searchSpeedIndex];
 
     // Defer initialization of maze-specific data
     var maze: [][]bool = &.{};
@@ -554,11 +557,26 @@ pub fn main() anyerror!void {
                 };
                 const searchTypeWidth = rl.measureTextEx(font, searchTypeText, fontSize, spacing).x;
                 const searchTypeHeight = rl.measureTextEx(font, searchTypeText, fontSize, spacing).y;
+
+                const searchSpeedPrefixText = " - Search Speed ";
+                const searchSpeedPrefixWidth = rl.measureTextEx(font, searchSpeedPrefixText, fontSize, spacing).x;
+                const searchSpeedX = searchTypeX + searchTypeWidth + searchSpeedPrefixWidth;
+                var buf: [16]u8 = undefined;
+                const searchSpeedText = try std.fmt.bufPrintZ(&buf, "{}", .{searchSpeed});
+                const searchSpeedWidth = rl.measureTextEx(font, searchSpeedText, fontSize, spacing).x;
+                const searchSpeedHeight = rl.measureTextEx(font, searchSpeedText, fontSize, spacing).y;
+
                 const searchTypeRect = rl.Rectangle{
                     .x = searchTypeX,
                     .y = topMargin,
                     .width = searchTypeWidth,
                     .height = searchTypeHeight,
+                };
+                const searchSpeedRect = rl.Rectangle{
+                    .x = searchSpeedX,
+                    .y = topMargin,
+                    .width = searchSpeedWidth,
+                    .height = searchSpeedHeight,
                 };
 
                 if (state == .SelectingStart and rl.checkCollisionPointRec(.{ .x = mouseX, .y = mouseY }, searchTypeRect)) {
@@ -569,6 +587,9 @@ pub fn main() anyerror!void {
                         .AStar => .DepthFirst,
                     };
                     try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType, previousSearchType);
+                } else if (state == .SelectingStart and rl.checkCollisionPointRec(.{ .x = mouseX, .y = mouseY }, searchSpeedRect)) {
+                    searchSpeedIndex = (searchSpeedIndex + 1) % searchSpeeds.len;
+                    searchSpeed = searchSpeeds[searchSpeedIndex];
                 } else if (state == .Failed or state == .Solved) {
                     try resetSearchState(allocator, maze, &visited, &cameFrom, &candidates, &sc, &qc, &ac, searchType, searchType);
                     start = null;
@@ -601,38 +622,41 @@ pub fn main() anyerror!void {
 
         // --- Expand Path Search ---
         if (state == .Running and !failed and !solved) {
-            const current = try candidates.get_candidate();
-            if (current) |c| {
-                if (c.equals(end.?)) {
-                    var path = std.ArrayList(Coord).init(allocator);
-                    defer path.deinit();
-                    var currentPath: ?Coord = end.?;
-                    while (currentPath != null) {
-                        try path.append(currentPath.?);
-                        currentPath = cameFrom.get(currentPath.?);
-                    }
-                    for (path.items) |coord| {
-                        visited[@intCast(coord.row)][@intCast(coord.col)] = Visit.Path;
-                    }
-                    solved = true;
-                    state = .Solved;
-                } else {
-                    visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
-                    if (!c.equals(end.?)) {
-                        var neighbors: [4]Coord = undefined;
-                        const emptyNeighbors = getEmptyNeighbors(visited, c, &neighbors);
-                        for (0..emptyNeighbors) |n| {
-                            visited[@intCast(neighbors[n].row)][@intCast(neighbors[n].col)] = Visit.Candidate;
-                            const newBest = try candidates.add_candidate(neighbors[n], current);
-                            if (newBest) {
-                                try cameFrom.put(neighbors[n], c);
+            var i: u32 = 0;
+            while (i < searchSpeed and !failed and !solved) : (i += 1) {
+                const current = try candidates.get_candidate();
+                if (current) |c| {
+                    if (c.equals(end.?)) {
+                        var path = std.ArrayList(Coord).init(allocator);
+                        defer path.deinit();
+                        var currentPath: ?Coord = end.?;
+                        while (currentPath != null) {
+                            try path.append(currentPath.?);
+                            currentPath = cameFrom.get(currentPath.?);
+                        }
+                        for (path.items) |coord| {
+                            visited[@intCast(coord.row)][@intCast(coord.col)] = Visit.Path;
+                        }
+                        solved = true;
+                        state = .Solved;
+                    } else {
+                        visited[@intCast(c.row)][@intCast(c.col)] = Visit.Visited;
+                        if (!c.equals(end.?)) {
+                            var neighbors: [4]Coord = undefined;
+                            const emptyNeighbors = getEmptyNeighbors(visited, c, &neighbors);
+                            for (0..emptyNeighbors) |n| {
+                                visited[@intCast(neighbors[n].row)][@intCast(neighbors[n].col)] = Visit.Candidate;
+                                const newBest = try candidates.add_candidate(neighbors[n], current);
+                                if (newBest) {
+                                    try cameFrom.put(neighbors[n], c);
+                                }
                             }
                         }
                     }
+                } else {
+                    failed = true;
+                    state = .Failed;
                 }
-            } else {
-                failed = true;
-                state = .Failed;
             }
         }
 
@@ -663,6 +687,14 @@ pub fn main() anyerror!void {
             };
             rl.drawTextEx(font, prefixText, .{ .x = leftMargin, .y = topMargin }, fontSize, spacing, rl.Color.black);
             rl.drawTextEx(font, searchTypeText, .{ .x = searchTypeX, .y = topMargin }, fontSize, spacing, rl.Color.dark_gray);
+
+            const searchSpeedPrefixText = " - Search Speed ";
+            const searchSpeedPrefixWidth = rl.measureTextEx(font, searchSpeedPrefixText, fontSize, spacing).x;
+            const searchSpeedX = searchTypeX + rl.measureTextEx(font, searchTypeText, fontSize, spacing).x + searchSpeedPrefixWidth;
+            var buf: [16]u8 = undefined;
+            const searchSpeedText = try std.fmt.bufPrintZ(&buf, "{}", .{searchSpeed});
+            rl.drawTextEx(font, searchSpeedPrefixText, .{ .x = searchTypeX + rl.measureTextEx(font, searchTypeText, fontSize, spacing).x, .y = topMargin }, fontSize, spacing, rl.Color.black);
+            rl.drawTextEx(font, searchSpeedText, .{ .x = searchSpeedX, .y = topMargin }, fontSize, spacing, rl.Color.dark_gray);
 
             const mapStartY = topMargin + mapStartMargin;
             const mapEndY = windowHeight - bottomMargin;
