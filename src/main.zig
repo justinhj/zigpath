@@ -412,7 +412,9 @@ pub fn main() anyerror!void {
     var maze: [][]bool = &.{};
     var visited: [][]Visit = &.{};
 
-    const stdout = std.io.getStdOut().writer();
+    var stdout_buffer: [1024 * 100]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
 
     // --- Raylib Window Initialization ---
     rl.initWindow(1, 1, ""); // Temporary window for monitor dimensions

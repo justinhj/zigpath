@@ -8,14 +8,16 @@ fn generateMazeManifest() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{});
+    var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{.read = false, .truncate = true});
     defer file.close();
 
     const BUFFER_SIZE: usize = 100 * 1024;
     var writeBuffer: [BUFFER_SIZE]u8 = undefined;
-    var writer = std.fs.File.writer(file, &writeBuffer).interface;
+    var writer = file.writer(&writeBuffer);
+    var writer_interface = &writer.interface;
 
-    try writer.print("pub const maze_files = &[_][]const u8{{\n", .{});
+    _ = try writer_interface.writeAll("pub const maze_files = &[_][]const u8{\n");
+    try writer_interface.flush();
 
     var dir = try std.fs.cwd().openDir("resources", .{});
     defer dir.close();
@@ -51,10 +53,12 @@ fn generateMazeManifest() !void {
     }
 
     for (maze_files.items) |maze_file| {
-        try writer.print("    \"{s}\",\n", .{maze_file});
+        try writer_interface.print("    \"{s}\",\n", .{maze_file});
+        try writer_interface.flush();
     }
 
-    try writer.writeAll("};\n");
+    try writer_interface.writeAll("};\n");
+    try writer_interface.flush();
 }
 
 pub fn build(b: *std.Build) !void {
