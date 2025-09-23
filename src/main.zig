@@ -230,11 +230,6 @@ fn freeGrid(allocator: std.mem.Allocator, grid: [][]bool) void {
 
 pub fn loadMaze(allocator: std.mem.Allocator, file_path: []const u8) ![][]bool {
     rl.traceLog(rl.TraceLogLevel.info, "loadMaze", .{});
-    // if (std.mem.eql(u8, file_path, "/defaultmaze")) {
-    //     // Use the default maze if no file path is provided
-    //     const slice: []const u8 = std.mem.span(defaultMaze);
-    //     return try parseMaze(allocator, slice);
-    // }
     const str = try loadFileToString(allocator, file_path);
     defer allocator.free(str);
     const grid = try parseMaze(allocator, str);
@@ -258,11 +253,9 @@ const Visit = enum {
 };
 
 pub fn makeVisited(allocator: std.mem.Allocator, maze: []const []const bool) ![][]Visit {
-    // Allocate the outer slice for rows
     var visited = try allocator.alloc([]Visit, maze.len);
     errdefer allocator.free(visited);
 
-    // Allocate each row and initialize it
     for (visited, 0..) |*row, rowIdx| {
         row.* = try allocator.alloc(Visit, maze[rowIdx].len);
         errdefer {
@@ -794,11 +787,9 @@ pub fn main() anyerror!void {
     }
 }
 
-
-// ... [Rest of the code remains unchanged] ...
-
 const testing = std.testing;
 
+// TODO what other useful tests could go here?
 test "AStar search" {
     const target = Coord{ .row = 0, .col = 0 };
     var ac = try AStarSearch.init(testing.allocator, target);
