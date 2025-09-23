@@ -3,12 +3,12 @@ const ArrayList = std.ArrayList;
 
 pub fn BinaryHeap(comptime Child: type) type {
     return struct {
+        // TODO why do I have This and Self?
         const This = @This();
+        const Self = @This();
 
         items: ArrayList(Child),
         lessThan: *const fn (a: Child, b: Child) bool,
-
-        const Self = @This();
 
         // Initialize the binary heap
         pub fn initCapacity(allocator: std.mem.Allocator, initialCapacity: usize, lessThanFn: *const fn (Child, Child) bool) !Self {
@@ -20,8 +20,8 @@ pub fn BinaryHeap(comptime Child: type) type {
         }
 
         // Deinitialize the binary heap
-        pub fn deinit(self: *Self) void {
-            self.items.deinit();
+        pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+            self.items.deinit(allocator);
         }
 
         // Get the index of the parent node
@@ -79,8 +79,8 @@ pub fn BinaryHeap(comptime Child: type) type {
         }
 
         // Insert a new element into the heap
-        pub fn insert(self: *Self, value: Child) !void {
-            try self.items.append(value);
+        pub fn insert(self: *Self, allocator: std.mem.Allocator, value: Child) !void {
+            try self.items.append(allocator, value);
             self.heapifyUp(self.items.items.len - 1);
         }
 
