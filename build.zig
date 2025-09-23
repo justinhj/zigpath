@@ -11,15 +11,16 @@ fn generateMazeManifest() !void {
     var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{});
     defer file.close();
 
-    var bw = std.io.bufferedWriter(file.writer());
-    const writer = bw.writer();
+    const BUFFER_SIZE: usize = 100 * 1024;
+    var writeBuffer: [BUFFER_SIZE]u8 = undefined;
+    var writer = std.fs.File.writer(file, &writeBuffer).interface;
 
-    try writer.writeAll("pub const maze_files = &[_][]const u8{\n");
+    try writer.print("pub const maze_files = &[_][]const u8{{\n", .{});
 
     var dir = try std.fs.cwd().openDir("resources", .{});
     defer dir.close();
 
-    var maze_files = std.ArrayList([]const u8).init(allocator);
+    var maze_files = std.array_list.Managed([]const u8).init(allocator);
     defer {
         for (maze_files.items) |item| {
             allocator.free(item);
@@ -54,9 +55,7 @@ fn generateMazeManifest() !void {
     }
 
     try writer.writeAll("};\n");
-    try bw.flush();
 }
-
 
 pub fn build(b: *std.Build) !void {
     // Generate the maze manifest file before building the project.
@@ -89,32 +88,38 @@ pub fn build(b: *std.Build) !void {
 
     // Web exports are completely separate
     if (target.query.os_tag == .emscripten) {
-        const exe_lib = try rlz.emcc.compileForEmscripten(b, "Project", "src/main.zig", target, optimize);
+        // const exe_lib = try rlz.emcc.compileForEmscripten(b, "Project", "src/main.zig", target, optimize);
 
-        exe_lib.linkLibrary(raylib_artifact);
-        exe_lib.root_module.addImport("raylib", raylib);
-        // Add queue and BinaryHeap modules for Emscripten
-        exe_lib.root_module.addImport("queue", queue_mod);
-        exe_lib.root_module.addImport("BinaryHeap", binary_heap_mod);
-        exe_lib.root_module.addImport("maze_manifest", maze_manifest_mod);
+        // exe_lib.linkLibrary(raylib_artifact);
+        // exe_lib.root_module.addImport("raylib", raylib);
+        // // Add queue and BinaryHeap modules for Emscripten
+        // exe_lib.root_module.addImport("queue", queue_mod);
+        // exe_lib.root_module.addImport("BinaryHeap", binary_heap_mod);
+        // exe_lib.root_module.addImport("maze_manifest", maze_manifest_mod);
 
-        // Note that raylib itself is not actually added to the exe_lib output file, so it also needs to be linked with emscripten.
-        const link_step = try rlz.emcc.linkWithEmscripten(b, &[_]*std.Build.Step.Compile{ exe_lib, raylib_artifact });
-        // This lets your program access files like "resources/my-image.png":
-        link_step.addArg("--embed-file");
-        link_step.addArg("resources/");
-        link_step.addArg("-sINITIAL_MEMORY=64MB");
-        link_step.addArg("-sALLOW_MEMORY_GROWTH=1");
-        
-        b.getInstallStep().dependOn(&link_step.step);
-        const run_step = try rlz.emcc.emscriptenRunStep(b);
-        run_step.step.dependOn(&link_step.step);
-        const run_option = b.step("run", "Run Project");
-        run_option.dependOn(&run_step.step);
+        // // Note that raylib itself is not actually added to the exe_lib output file, so it also needs to be linked with emscripten.
+        // const link_step = try rlz.emcc.linkWithEmscripten(b, &[_]*std.Build.Step.Compile{ exe_lib, raylib_artifact });
+        // // This lets your program access files like "resources/my-image.png":
+        // link_step.addArg("--embed-file");
+        // link_step.addArg("resources/");
+        // link_step.addArg("-sINITIAL_MEMORY=64MB");
+        // link_step.addArg("-sALLOW_MEMORY_GROWTH=1");
+
+        // b.getInstallStep().dependOn(&link_step.step);
+        // const run_step = try rlz.emcc.emscriptenRunStep(b);
+        // run_step.step.dependOn(&link_step.step);
+        // const run_option = b.step("run", "Run Project");
+        // run_option.dependOn(&run_step.step);
         return;
     }
 
-    const exe = b.addExecutable(.{ .name = "zigpath", .root_source_file = b.path("src/main.zig"), .optimize = optimize, .target = target });
+    const root_module = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const exe = b.addExecutable(.{ .name = "zigpath", .root_module = root_module });
 
     // Add private modules
     exe.root_module.addImport("queue", queue_mod);
@@ -131,10 +136,14 @@ pub fn build(b: *std.Build) !void {
     b.installArtifact(exe);
 
     // Add a test step
-    const test_exe = b.addTest(.{
+    const test_module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+    });
+
+    const test_exe = b.addTest(.{
+        .root_module = test_module,
     });
 
     // Add necessary modules to the test executable
