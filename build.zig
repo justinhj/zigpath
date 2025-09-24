@@ -14,10 +14,8 @@ fn generateMazeManifest() !void {
     const BUFFER_SIZE: usize = 100 * 1024;
     var writeBuffer: [BUFFER_SIZE]u8 = undefined;
     var writer = file.writer(&writeBuffer);
-    var writer_interface = &writer.interface;
 
-    _ = try writer_interface.writeAll("pub const maze_files = &[_][]const u8{\n");
-    try writer_interface.flush();
+    _ = try writer.interface.writeAll("pub const maze_files = &[_][]const u8{\n");
 
     var dir = try std.fs.cwd().openDir("resources", .{});
     defer dir.close();
@@ -53,12 +51,11 @@ fn generateMazeManifest() !void {
     }
 
     for (maze_files.items) |maze_file| {
-        try writer_interface.print("    \"{s}\",\n", .{maze_file});
-        try writer_interface.flush();
+        try writer.interface.print("    \"{s}\",\n", .{maze_file});
     }
 
-    try writer_interface.writeAll("};\n");
-    try writer_interface.flush();
+    try writer.interface.writeAll("};\n");
+    try writer.interface.flush();
 }
 
 pub fn build(b: *std.Build) !void {
