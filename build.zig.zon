@@ -1,6 +1,6 @@
 .{
     .name = .zigpath,
-    .version = "0.0.1",
+    .version = "0.0.2",
     .fingerprint = 0xfb8df1c7528f97a1,
     .dependencies = .{
         .raylib_zig = .{
