@@ -59,7 +59,6 @@ fn generateMazeManifest() !void {
 }
 
 pub fn build(b: *std.Build) !void {
-
     // Generate the maze manifest file before building the project.
     generateMazeManifest() catch |err| {
         std.debug.print("Failed to generate maze manifest: {any}\n", .{err});
@@ -88,90 +87,79 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("src/maze_manifest.zig"),
     });
 
+    const root_module = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const exe = b.addExecutable(.{ .name = "zigpath", .root_module = root_module });
+
+    // Add private modules
+    exe.root_module.addImport("queue", queue_mod);
+    exe.root_module.addImport("BinaryHeap", binary_heap_mod);
+    exe.root_module.addImport("maze_manifest", maze_manifest_mod);
+
+    exe.linkLibrary(raylib_artifact);
+    exe.root_module.addImport("raylib", raylib);
+
+    const run_cmd = b.addRunArtifact(exe);
+    const run_step = b.step("run", "Run Project");
+    run_step.dependOn(&run_cmd.step);
+
+    b.installArtifact(exe);
+
     // Web exports are completely separate
     if (target.query.os_tag == .emscripten) {
-        const zemscripten_dep = b.dependency("zemscripten", .{});
-        const emsdk_dep = b.dependency("emsdk", .{});
-
-        const zemscripten = zemscripten_dep.module("zemscripten");
-        const emsdk = emsdk_dep.module("emsdk");
-
-        const activate_emsdk_step = zemscripten.call(.{
-            .name = "activateEmsdkStep",
-            .args = .{ b, emsdk.path("root") },
+        const emsdk = rlz.emsdk;
+        const wasm = b.addLibrary(.{
+            .name = "raylib",
+            .root_module = exe.root_module,
         });
 
-        const wasm_lib = b.addStaticLibrary(.{
-            .name = "zigpath",
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
+        const install_dir: std.Build.InstallDir = .{ .custom = "web" };
+        const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{ .optimize = optimize });
+        const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{ .optimize = optimize });
+
+        const emcc_step = emsdk.emccStep(b, raylib_artifact, wasm, .{
             .optimize = optimize,
+            .flags = emcc_flags,
+            .settings = emcc_settings,
+            .install_dir = install_dir,
         });
-        wasm_lib.addModule("zemscripten", zemscripten);
-        wasm_lib.linkLibC = true;
+        b.getInstallStep().dependOn(emcc_step);
 
-        wasm_lib.root_module.addImport("raylib", raylib);
-        wasm_lib.root_module.addImport("queue", queue_mod);
-        wasm_lib.root_module.addImport("BinaryHeap", binary_heap_mod);
-        wasm_lib.root_module.addImport("maze_manifest", maze_manifest_mod);
+        const html_filename = try std.fmt.allocPrint(b.allocator, "{s}.html", .{wasm.name});
+        const emrun_step = emsdk.emrunStep(
+            b,
+            b.getInstallPath(install_dir, html_filename),
+            &.{},
+        );
 
-        const emcc_step = zemscripten.call(.{
-            .name = "emccStep",
-            .args = .{
-                b,
-                wasm_lib,
-                &.{
-                    "-s", "ASYNCIFY",
-                    "-s", "EXPORTED_FUNCTIONS=['_main']",
-                    "-s", "EXPORT_ES6=1",
-                    "-s", "MODULARIZE=1",
-                },
-            },
-        });
-        emcc_step.dependOn(&activate_emsdk_step.step);
+        emrun_step.dependOn(emcc_step);
+        run_step.dependOn(emrun_step);
+        // const exe_lib = try rlz.emcc.compileForEmscripten(b, "Project", "src/main.zig", target, optimize);
+        // exe_lib.linkLibrary(raylib_artifact);
+        // exe_lib.root_module.addImport("raylib", raylib);
+        // // Add queue and BinaryHeap modules for Emscripten
+        // exe_lib.root_module.addImport("queue", queue_mod);
+        // exe_lib.root_module.addImport("BinaryHeap", binary_heap_mod);
+        // exe_lib.root_module.addImport("maze_manifest", maze_manifest_mod);
 
-        const install_step = b.addInstallArtifact(emcc_step.out_file, .{
-            .dest_dir = .{ .custom = "web" },
-        });
-        install_step.dependOn(&emcc_step.step);
+        // // Note that raylib itself is not actually added to the exe_lib output file, so it also needs to be linked with emscripten.
+        // const link_step = try rlz.emcc.linkWithEmscripten(b, &[_]*std.Build.Step.Compile{ exe_lib, raylib_artifact });
+        // // This lets your program access files like "resources/my-image.png":
+        // link_step.addArg("--embed-file");
+        // link_step.addArg("resources/");
+        // link_step.addArg("-sINITIAL_MEMORY=64MB");
+        // link_step.addArg("-sALLOW_MEMORY_GROWTH=1");
 
-        const html_filename = try std.fmt.allocPrint(b.allocator, "{s}.html", .{wasm_lib.name});
-        const emrun_step = zemscripten.call(.{
-            .name = "emrunStep",
-            .args = .{
-                b,
-                b.getInstallPath(.{ .custom = "web" }, html_filename),
-                &.{},
-            },
-        });
-        emrun_step.dependOn(&install_step.step);
-
-        b.step("build-wasm", "Builds the WebAssembly module").dependOn(&install_step.step);
-        b.step("run-wasm", "Builds and opens the web app locally using emrun").dependOn(&emrun_step.step);
-
+        // b.getInstallStep().dependOn(&link_step.step);
+        // const run_step = try rlz.emcc.emscriptenRunStep(b);
+        // run_step.step.dependOn(&link_step.step);
+        // const run_option = b.step("run", "Run Project");
+        // run_option.dependOn(&run_step.step);
         return;
-    } else {
-        const root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-
-        const exe = b.addExecutable(.{ .name = "zigpath", .root_module = root_module });
-
-        // Add private modules
-        exe.root_module.addImport("queue", queue_mod);
-        exe.root_module.addImport("BinaryHeap", binary_heap_mod);
-        exe.root_module.addImport("maze_manifest", maze_manifest_mod);
-
-        exe.linkLibrary(raylib_artifact);
-        exe.root_module.addImport("raylib", raylib);
-
-        const run_cmd = b.addRunArtifact(exe);
-        const run_step = b.step("run", "Run Project");
-        run_step.dependOn(&run_cmd.step);
-
-        b.installArtifact(exe);
     }
 
     // Add a test step

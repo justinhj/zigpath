@@ -8,12 +8,8 @@
             .hash = "raylib_zig-5.6.0-dev-KE8REOJCBQBByfL-ndaNNt96nm9ESNPFTrzfEeCWTpEY",
         },
         .emsdk = .{
-            .url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/4.0.3.tar.gz",
-            .hash = "122089f5c9fe376b309b6a3970b9838667479adc0d9e038284aefceec6bb6d4f1ed0",
-        },
-        .zemscripten = .{
-            .url = "https://github.com/zig-gamedev/zemscripten/archive/refs/tags/0.0.1.tar.gz",
-            .hash = "12200f54d3d37b99ecde3987c1fdc744d87b40595cc32e8943db82635498f14c0db0",
+            .url = "git+https://github.com/emscripten-core/emsdk?ref=4.0.9#3bcf1dcd01f040f370e10fe673a092d9ed79ebb5",
+            .hash = "N-V-__8AAJl1DwBezhYo_VE6f53mPVm00R-Fk28NPW7P14EQ",
         },
     },
     .paths = .{""},
