@@ -8,4 +8,5 @@
 4. ~Allow more than step per update of the search to vary the animation time.~
 5. Best first search
 6. Dijkstra (?)
-6. ~Add to web using emscripten.~
+7. ~Add to web using emscripten.~
+8. Write generated code to a generated code folder

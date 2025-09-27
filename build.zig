@@ -93,12 +93,11 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    const exe = b.addExecutable(.{ .name = "zigpath", .root_module = root_module });
+    root_module.addImport("queue", queue_mod);
+    root_module.addImport("BinaryHeap", binary_heap_mod);
+    root_module.addImport("maze_manifest", maze_manifest_mod);
 
-    // Add private modules
-    exe.root_module.addImport("queue", queue_mod);
-    exe.root_module.addImport("BinaryHeap", binary_heap_mod);
-    exe.root_module.addImport("maze_manifest", maze_manifest_mod);
+    const exe = b.addExecutable(.{ .name = "zigpath", .root_module = root_module });
 
     exe.linkLibrary(raylib_artifact);
     exe.root_module.addImport("raylib", raylib);
@@ -114,7 +113,7 @@ pub fn build(b: *std.Build) !void {
         const emsdk = rlz.emsdk;
         const wasm = b.addLibrary(.{
             .name = "raylib",
-            .root_module = exe.root_module,
+            .root_module = root_module,
         });
 
         const install_dir: std.Build.InstallDir = .{ .custom = "web" };
