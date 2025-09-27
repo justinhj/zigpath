@@ -111,32 +111,45 @@ pub fn build(b: *std.Build) !void {
     // Web exports are completely separate
     if (target.query.os_tag == .emscripten) {
         const emsdk = rlz.emsdk;
+        const name = "zigpath";
         const wasm = b.addLibrary(.{
-            .name = "raylib",
+            .name = name,
             .root_module = root_module,
         });
 
+        wasm.linkLibrary(raylib_artifact);
+
         const install_dir: std.Build.InstallDir = .{ .custom = "web" };
-        const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{ .optimize = optimize });
-        const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{ .optimize = optimize });
+
+        const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{
+                .optimize = optimize,
+                .asyncify = false,
+            });
+        const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{
+                .optimize = optimize,
+            });
 
         const emcc_step = emsdk.emccStep(b, raylib_artifact, wasm, .{
-            .optimize = optimize,
-            .flags = emcc_flags,
-            .settings = emcc_settings,
-            .install_dir = install_dir,
-        });
-        b.getInstallStep().dependOn(emcc_step);
+                .optimize = optimize,
+                .flags = emcc_flags,
+                .settings = emcc_settings,
+                .install_dir = install_dir,
+                .embed_paths = &.{.{ .src_path = "resources/" }},
+            });
 
-        const html_filename = try std.fmt.allocPrint(b.allocator, "{s}.html", .{wasm.name});
+        const html_filename = "index.html";
+
         const emrun_step = emsdk.emrunStep(
             b,
             b.getInstallPath(install_dir, html_filename),
             &.{},
         );
-
         emrun_step.dependOn(emcc_step);
-        run_step.dependOn(emrun_step);
+
+        const run_option = b.step(name, name);
+        run_option.dependOn(emrun_step);
+        run_step.dependOn(emcc_step);
+
         // const exe_lib = try rlz.emcc.compileForEmscripten(b, "Project", "src/main.zig", target, optimize);
         // exe_lib.linkLibrary(raylib_artifact);
         // exe_lib.root_module.addImport("raylib", raylib);
