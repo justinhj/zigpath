@@ -111,7 +111,7 @@ pub fn build(b: *std.Build) !void {
         const install_dir: std.Build.InstallDir = .{ .custom = "web" };
         const emcc_flags = rlz.emsdk.emccDefaultFlags(b.allocator, .{
             .optimize = optimize,
-            .asyncify = false,
+            .asyncify = true,
         });
         const emcc_settings = rlz.emsdk.emccDefaultSettings(b.allocator, .{
             .optimize = optimize,
@@ -127,7 +127,7 @@ pub fn build(b: *std.Build) !void {
         // Make the default build step create the web files
         b.getInstallStep().dependOn(emcc_step);
 
-        const html_filename = "index.html";
+        const html_filename = try std.fmt.allocPrint(b.allocator, "{s}.html", .{name});
         const emrun_step = rlz.emsdk.emrunStep(
             b,
             b.getInstallPath(install_dir, html_filename),
