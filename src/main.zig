@@ -1,9 +1,9 @@
 const rl = @import("raylib");
 const std = @import("std");
 const maze_manifest = @import("maze_manifest");
-
 const queue = @import("queue");
-const binaryHeap = @import("BinaryHeap");
+const PriorityQueue = std.PriorityQueue;
+const Order = std.math.Order;
 
 const MazeErrorSet = error{
     InvalidMaze,
@@ -66,17 +66,23 @@ const BreadthFirstSearch = struct {
 const fScoreEntry = struct {
     coord: Coord,
     score: i32,
+    pub fn eql(a: Coord, b: Coord) bool {
+      return a.score == b.score;
+    }
 };
 
-fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
-    return a.score < b.score;
+fn fScoreLessThan(context: void, a: fScoreEntry, b: fScoreEntry) Order {
+    _ = context;
+    return std.math.order(a.score, b.score);
 }
+
+const PQ = PriorityQueue(fScoreEntry, void, fScoreLessThan);
 
 const AStarSearch = struct {
     openSet: std.AutoHashMap(Coord, bool),
     closedSet: std.AutoHashMap(Coord, bool),
     gScore: std.AutoHashMap(Coord, i32),
-    fScore: binaryHeap.BinaryHeap(fScoreEntry),
+    fScore: PQ,
     target: Coord,
 
     const Self = @This();
@@ -85,7 +91,7 @@ const AStarSearch = struct {
         const os = std.AutoHashMap(Coord, bool).init(allocator);
         const cs = std.AutoHashMap(Coord, bool).init(allocator);
         const gs = std.AutoHashMap(Coord, i32).init(allocator);
-        const fs = try binaryHeap.BinaryHeap(fScoreEntry).initCapacity(allocator, 100, fScoreLessThan);
+        const fs = PQ.init(allocator, {});
 
         return AStarSearch{
             .openSet = os,
@@ -97,10 +103,11 @@ const AStarSearch = struct {
     }
 
     fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+        _ = allocator;
         self.openSet.deinit();
         self.closedSet.deinit();
         self.gScore.deinit();
-        self.fScore.deinit(allocator);
+        self.fScore.deinit();
     }
 
     fn manhattanDistance(self: *Self, a: Coord, b: Coord) i32 {
@@ -114,6 +121,7 @@ const AStarSearch = struct {
     // the code returns true if it should be updated (a new best node) or false
     // otherwise.
     fn add_candidate(self: *Self, allocator: std.mem.Allocator, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
+        _ = allocator;
         if (self.closedSet.contains(candidate)) {
             return false;
         }
@@ -131,13 +139,13 @@ const AStarSearch = struct {
         }
         _ = try self.gScore.put(candidate, tentativeGScore);
         const fScore = tentativeGScore + self.manhattanDistance(candidate, self.target);
-        _ = try self.fScore.insert(allocator, fScoreEntry{ .coord = candidate, .score = fScore });
+        _ = try self.fScore.add(fScoreEntry{ .coord = candidate, .score = fScore });
         return true;
     }
 
     fn get_candidate(self: *AStarSearch) MazeErrorSet!?Coord {
         if (self.openSet.count() > 0) {
-            const bestFScore = self.fScore.extractMin();
+            const bestFScore = self.fScore.removeOrNull();
             if (bestFScore) |entry| {
                 _ = self.openSet.remove(entry.coord);
                 _ = try self.closedSet.put(entry.coord, true);
@@ -408,7 +416,7 @@ pub fn main() anyerror!void {
     var maze: [][]bool = &.{};
     var visited: [][]Visit = &.{};
 
-    // TODO better to load this to the heap
+    // TODO better to load this to the heap perhaps
     var stdout_buffer: [1024 * 100]u8 = undefined;
     var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
     const stdout = &stdout_writer.interface;

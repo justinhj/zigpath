@@ -76,9 +76,6 @@ pub fn build(b: *std.Build) !void {
     const queue_mod = b.createModule(.{
         .root_source_file = b.path("src/queue.zig"),
     });
-    const binary_heap_mod = b.createModule(.{
-        .root_source_file = b.path("src/binaryheap.zig"),
-    });
     const maze_manifest_mod = b.createModule(.{
         .root_source_file = b.path("src/maze_manifest.zig"),
     });
@@ -90,7 +87,6 @@ pub fn build(b: *std.Build) !void {
     });
 
     root_module.addImport("queue", queue_mod);
-    root_module.addImport("BinaryHeap", binary_heap_mod);
     root_module.addImport("maze_manifest", maze_manifest_mod);
     root_module.addImport("raylib", raylib);
 
@@ -157,7 +153,6 @@ pub fn build(b: *std.Build) !void {
 
     // Add necessary modules to the test executable
     test_exe.root_module.addImport("queue", queue_mod);
-    test_exe.root_module.addImport("BinaryHeap", binary_heap_mod);
     test_exe.root_module.addImport("raylib", raylib);
     test_exe.root_module.addImport("maze_manifest", maze_manifest_mod);
 
@@ -174,19 +169,7 @@ pub fn build(b: *std.Build) !void {
     });
     const queue_test_cmd = b.addRunArtifact(queue_test_exe);
 
-    // Separate tests for binaryheap.zig (no external dependencies)
-    const binaryheap_test_module = b.createModule(.{
-        .root_source_file = b.path("src/binaryheap.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    const binaryheap_test_exe = b.addTest(.{
-        .root_module = binaryheap_test_module,
-    });
-    const binaryheap_test_cmd = b.addRunArtifact(binaryheap_test_exe);
-
     const test_step = b.step("test", "Run all tests");
     test_step.dependOn(&test_cmd.step);
     test_step.dependOn(&queue_test_cmd.step);
-    test_step.dependOn(&binaryheap_test_cmd.step);
 }

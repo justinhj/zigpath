@@ -78,17 +78,16 @@ Example maze file (`maze.txt`):
 
 ```
 #.#.#.#.#
-.#.#.#.#.
+#..#.#.#.
 #.#.#.#.#
-.#.#.#.#.
+#........
 #.#.#.#.#
 ```
 
 ## Code Structure
 
 - main.zig - The main program that orchestrates the pathfinding and visualization.
-- queue.zig - Queue implemented via a circular buffer.
-- binaryheap.zig - Binary heap used to provide efficient best first retrieval of next candidates.
+- queue.zig - Queue implemented via a circular buffer backed by array list
 
 ## Resources
 
