@@ -10,7 +10,7 @@ An animated pathfinder written in Zig using Raylib, allowing you compare visuall
 
 ## Live demo
 
-You can try it in your browser at [https://heyes-jones.com/zigpath/index.html](https://heyes-jones.com/zigpath/index.html).
+You can try it in your browser at [https://heyes-jones.com/zigpath/zigpath.html](https://heyes-jones.com/zigpath/zigpath.html).
 
 ## Screenshots
 
@@ -82,13 +82,6 @@ Example maze file (`maze.txt`):
 #.#.#.#.#
 .#.#.#.#.
 #.#.#.#.#
-```
-
-### Example of running in the browser
-
-```sh
-cd zig-out/html
-emrun --browser safari index.html
 ```
 
 ## Code Structure
