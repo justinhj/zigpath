@@ -11,23 +11,24 @@ const MazeErrorSet = error{
 };
 
 const DepthFirstSearch = struct {
-    candidates: std.ArrayList(Coord),
+    candidates: std.array_list.Aligned(Coord, null),
 
     const Self = @This();
 
+    // TODO name this initCapacity
     fn init(allocator: std.mem.Allocator, initialCapacity: usize) MazeErrorSet!DepthFirstSearch {
         return DepthFirstSearch{
-            .candidates = try std.ArrayList(Coord).initCapacity(allocator, initialCapacity),
+            .candidates = try std.array_list.Aligned(Coord, null).initCapacity(allocator, initialCapacity),
         };
     }
 
-    fn deinit(self: *Self) void {
-        self.candidates.deinit();
+    fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+        self.candidates.deinit(allocator);
     }
 
-    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
+    fn add_candidate(self: *Self, allocator: std.mem.Allocator, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
         _ = from;
-        try self.candidates.append(candidate);
+        try self.candidates.append(allocator, candidate);
         return true;
     }
 
@@ -50,7 +51,8 @@ const BreadthFirstSearch = struct {
         self.candidates.deinit();
     }
 
-    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
+    fn add_candidate(self: *Self, allocator: std.mem.Allocator, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
+        _ = allocator;
         _ = from;
         try self.candidates.enqueue(candidate);
         return true;
@@ -94,11 +96,11 @@ const AStarSearch = struct {
         };
     }
 
-    fn deinit(self: *Self) void {
+    fn deinit(self: *Self, allocator: std.mem.Allocator) void {
         self.openSet.deinit();
         self.closedSet.deinit();
         self.gScore.deinit();
-        self.fScore.deinit();
+        self.fScore.deinit(allocator);
     }
 
     fn manhattanDistance(self: *Self, a: Coord, b: Coord) i32 {
@@ -111,7 +113,7 @@ const AStarSearch = struct {
     // Since the cameFrom map is managed by the client of the Candidates struct,
     // the code returns true if it should be updated (a new best node) or false
     // otherwise.
-    fn add_candidate(self: *Self, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
+    fn add_candidate(self: *Self, allocator: std.mem.Allocator, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
         if (self.closedSet.contains(candidate)) {
             return false;
         }
@@ -129,7 +131,7 @@ const AStarSearch = struct {
         }
         _ = try self.gScore.put(candidate, tentativeGScore);
         const fScore = tentativeGScore + self.manhattanDistance(candidate, self.target);
-        _ = try self.fScore.insert(fScoreEntry{ .coord = candidate, .score = fScore });
+        _ = try self.fScore.insert(allocator, fScoreEntry{ .coord = candidate, .score = fScore });
         return true;
     }
 
@@ -150,9 +152,9 @@ const SearchCandidates = union(enum) {
     queueCandidates: *BreadthFirstSearch,
     aStarCandidates: *AStarSearch,
 
-    pub fn add_candidate(self: *SearchCandidates, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
+    pub fn add_candidate(self: *SearchCandidates, allocator: std.mem.Allocator, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
         return switch (self.*) {
-            inline else => |*case| return try case.*.add_candidate(candidate, from),
+            inline else => |*case| return try case.*.add_candidate(allocator, candidate, from),
         };
     }
 
@@ -228,11 +230,6 @@ fn freeGrid(allocator: std.mem.Allocator, grid: [][]bool) void {
 
 pub fn loadMaze(allocator: std.mem.Allocator, file_path: []const u8) ![][]bool {
     rl.traceLog(rl.TraceLogLevel.info, "loadMaze", .{});
-    // if (std.mem.eql(u8, file_path, "/defaultmaze")) {
-    //     // Use the default maze if no file path is provided
-    //     const slice: []const u8 = std.mem.span(defaultMaze);
-    //     return try parseMaze(allocator, slice);
-    // }
     const str = try loadFileToString(allocator, file_path);
     defer allocator.free(str);
     const grid = try parseMaze(allocator, str);
@@ -256,11 +253,9 @@ const Visit = enum {
 };
 
 pub fn makeVisited(allocator: std.mem.Allocator, maze: []const []const bool) ![][]Visit {
-    // Allocate the outer slice for rows
     var visited = try allocator.alloc([]Visit, maze.len);
     errdefer allocator.free(visited);
 
-    // Allocate each row and initialize it
     for (visited, 0..) |*row, rowIdx| {
         row.* = try allocator.alloc(Visit, maze[rowIdx].len);
         errdefer {
@@ -355,9 +350,9 @@ pub fn resetSearchState(allocator: std.mem.Allocator, maze: []const []const bool
 
     // Deinit previous candidates and create new ones
     switch (previousSearchType) {
-        SearchType.DepthFirst => sc.deinit(),
+        SearchType.DepthFirst => sc.deinit(allocator),
         SearchType.BreadthFirst => qc.deinit(),
-        SearchType.AStar => ac.deinit(),
+        SearchType.AStar => ac.deinit(allocator),
     }
 
     // Reinitialize candidates based on search type
@@ -407,12 +402,16 @@ pub fn main() anyerror!void {
     var searchSpeedIndex: usize = 0;
     const searchSpeeds = [_]u32{ 1, 10, 100, 1000, 10000 };
     var searchSpeed = searchSpeeds[searchSpeedIndex];
+    const INITIAL_PATH_ALLOC_SIZE: usize = 1024;
 
     // Defer initialization of maze-specific data
     var maze: [][]bool = &.{};
     var visited: [][]Visit = &.{};
 
-    const stdout = std.io.getStdOut().writer();
+    // TODO better to load this to the heap
+    var stdout_buffer: [1024 * 100]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
 
     // --- Raylib Window Initialization ---
     rl.initWindow(1, 1, ""); // Temporary window for monitor dimensions
@@ -503,9 +502,9 @@ pub fn main() anyerror!void {
                             freeGrid(allocator, maze);
                             freeVisited(allocator, visited);
                             switch (searchType) {
-                                .DepthFirst => sc.deinit(),
+                                .DepthFirst => sc.deinit(allocator),
                                 .BreadthFirst => qc.deinit(),
-                                .AStar => ac.deinit(),
+                                .AStar => ac.deinit(allocator),
                             }
                         }
 
@@ -610,11 +609,11 @@ pub fn main() anyerror!void {
                         state = .Running;
 
                         if (searchType == .AStar) {
-                            ac.deinit();
+                            ac.deinit(allocator);
                             ac = try AStarSearch.init(allocator, end.?);
                             candidates = SearchCandidates{ .aStarCandidates = &ac };
                         }
-                        _ = try candidates.add_candidate(start.?, null);
+                        _ = try candidates.add_candidate(allocator, start.?, null);
                     }
                 }
             }
@@ -627,11 +626,11 @@ pub fn main() anyerror!void {
                 const current = try candidates.get_candidate();
                 if (current) |c| {
                     if (c.equals(end.?)) {
-                        var path = std.ArrayList(Coord).init(allocator);
-                        defer path.deinit();
+                        var path = try std.array_list.Aligned(Coord, null).initCapacity(allocator, INITIAL_PATH_ALLOC_SIZE);
+                        defer path.deinit(allocator);
                         var currentPath: ?Coord = end.?;
                         while (currentPath != null) {
-                            try path.append(currentPath.?);
+                            try path.append(allocator, currentPath.?);
                             currentPath = cameFrom.get(currentPath.?);
                         }
                         for (path.items) |coord| {
@@ -646,7 +645,7 @@ pub fn main() anyerror!void {
                             const emptyNeighbors = getEmptyNeighbors(visited, c, &neighbors);
                             for (0..emptyNeighbors) |n| {
                                 visited[@intCast(neighbors[n].row)][@intCast(neighbors[n].col)] = Visit.Candidate;
-                                const newBest = try candidates.add_candidate(neighbors[n], current);
+                                const newBest = try candidates.add_candidate(allocator, neighbors[n], current);
                                 if (newBest) {
                                     try cameFrom.put(neighbors[n], c);
                                 }
@@ -781,27 +780,25 @@ pub fn main() anyerror!void {
         freeGrid(allocator, maze);
         freeVisited(allocator, visited);
         switch (searchType) {
-            .DepthFirst => sc.deinit(),
+            .DepthFirst => sc.deinit(allocator),
             .BreadthFirst => qc.deinit(),
-            .AStar => ac.deinit(),
+            .AStar => ac.deinit(allocator),
         }
     }
 }
 
-
-// ... [Rest of the code remains unchanged] ...
-
 const testing = std.testing;
 
+// TODO what other useful tests could go here?
 test "AStar search" {
     const target = Coord{ .row = 0, .col = 0 };
     var ac = try AStarSearch.init(testing.allocator, target);
-    defer ac.deinit();
+    defer ac.deinit(testing.allocator);
 
-    _ = try ac.add_candidate(Coord{ .row = 0, .col = 1 }, null);
-    _ = try ac.add_candidate(Coord{ .row = 0, .col = 1 }, null);
-    _ = try ac.add_candidate(Coord{ .row = 0, .col = 1 }, null);
-    _ = try ac.add_candidate(Coord{ .row = 0, .col = 1 }, null);
+    _ = try ac.add_candidate(testing.allocator, Coord{ .row = 0, .col = 1 }, null);
+    _ = try ac.add_candidate(testing.allocator, Coord{ .row = 0, .col = 1 }, null);
+    _ = try ac.add_candidate(testing.allocator, Coord{ .row = 0, .col = 1 }, null);
+    _ = try ac.add_candidate(testing.allocator, Coord{ .row = 0, .col = 1 }, null);
     const c = try ac.get_candidate();
     try testing.expectEqual(c.?.row, 0);
 }

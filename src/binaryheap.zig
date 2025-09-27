@@ -3,12 +3,12 @@ const ArrayList = std.ArrayList;
 
 pub fn BinaryHeap(comptime Child: type) type {
     return struct {
+        // TODO why do I have This and Self?
         const This = @This();
+        const Self = @This();
 
         items: ArrayList(Child),
         lessThan: *const fn (a: Child, b: Child) bool,
-
-        const Self = @This();
 
         // Initialize the binary heap
         pub fn initCapacity(allocator: std.mem.Allocator, initialCapacity: usize, lessThanFn: *const fn (Child, Child) bool) !Self {
@@ -20,8 +20,8 @@ pub fn BinaryHeap(comptime Child: type) type {
         }
 
         // Deinitialize the binary heap
-        pub fn deinit(self: *Self) void {
-            self.items.deinit();
+        pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+            self.items.deinit(allocator);
         }
 
         // Get the index of the parent node
@@ -79,8 +79,8 @@ pub fn BinaryHeap(comptime Child: type) type {
         }
 
         // Insert a new element into the heap
-        pub fn insert(self: *Self, value: Child) !void {
-            try self.items.append(value);
+        pub fn insert(self: *Self, allocator: std.mem.Allocator, value: Child) !void {
+            try self.items.append(allocator, value);
             self.heapifyUp(self.items.items.len - 1);
         }
 
@@ -111,64 +111,66 @@ fn i32LessThan(a: i32, b: i32) bool {
 }
 
 test "Basic" {
-    var heap = try BinaryHeap(i32).init(testing.allocator, 10, i32LessThan);
-    defer heap.deinit();
+    var heap = try BinaryHeap(i32).initCapacity(testing.allocator, 10, i32LessThan);
+    defer heap.deinit(testing.allocator);
 
-    try heap.insert(10);
-    try heap.insert(5);
-    try heap.insert(20);
-    try heap.insert(12);
-    try heap.insert(7);
-    try heap.insert(8);
-    try heap.insert(17);
-    try heap.insert(5);
-    try heap.insert(22);
+    try heap.insert(testing.allocator, 10);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 20);
+    try heap.insert(testing.allocator, 12);
+    try heap.insert(testing.allocator, 7);
+    try heap.insert(testing.allocator, 8);
+    try heap.insert(testing.allocator, 17);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 22);
 
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 7);
-    try testing.expect(heap.extractMin().? == 8);
-    try testing.expect(heap.extractMin().? == 10);
-    try testing.expect(heap.extractMin().? == 12);
-    try testing.expect(heap.extractMin().? == 17);
-    try testing.expect(heap.extractMin().? == 20);
-    try testing.expect(heap.extractMin().? == 22);
-    try testing.expect(heap.extractMin() == null);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 7);
+    try testing.expectEqual(heap.extractMin().?, 8);
+    try testing.expectEqual(heap.extractMin().?, 10);
+    try testing.expectEqual(heap.extractMin().?, 12);
+    try testing.expectEqual(heap.extractMin().?, 17);
+    try testing.expectEqual(heap.extractMin().?, 20);
+    try testing.expectEqual(heap.extractMin().?, 22);
+    try testing.expectEqual(heap.extractMin(), null);
 
-    try heap.insert(10);
-    try heap.insert(5);
-    try heap.insert(20);
+    try heap.insert(testing.allocator, 10);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 20);
 
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 10);
-    try testing.expect(heap.extractMin().? == 20);
-    try testing.expect(heap.extractMin() == null);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 10);
+    try testing.expectEqual(heap.extractMin().?, 20);
+    try testing.expectEqual(heap.extractMin(), null);
 }
 
 test "Expand capacity" {
-    var heap = try BinaryHeap(i32).init(testing.allocator, 5, i32LessThan);
-    defer heap.deinit();
+    var heap = try BinaryHeap(i32).initCapacity(testing.allocator, 5, i32LessThan);
+    defer heap.deinit(
+        testing.allocator,
+    );
 
-    try heap.insert(10);
-    try heap.insert(5);
-    try heap.insert(20);
-    try heap.insert(12);
-    try heap.insert(7);
-    try heap.insert(8);
-    try heap.insert(17);
-    try heap.insert(5);
-    try heap.insert(22);
+    try heap.insert(testing.allocator, 10);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 20);
+    try heap.insert(testing.allocator, 12);
+    try heap.insert(testing.allocator, 7);
+    try heap.insert(testing.allocator, 8);
+    try heap.insert(testing.allocator, 17);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 22);
 
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 7);
-    try testing.expect(heap.extractMin().? == 8);
-    try testing.expect(heap.extractMin().? == 10);
-    try testing.expect(heap.extractMin().? == 12);
-    try testing.expect(heap.extractMin().? == 17);
-    try testing.expect(heap.extractMin().? == 20);
-    try testing.expect(heap.extractMin().? == 22);
-    try testing.expect(heap.extractMin() == null);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 7);
+    try testing.expectEqual(heap.extractMin().?, 8);
+    try testing.expectEqual(heap.extractMin().?, 10);
+    try testing.expectEqual(heap.extractMin().?, 12);
+    try testing.expectEqual(heap.extractMin().?, 17);
+    try testing.expectEqual(heap.extractMin().?, 20);
+    try testing.expectEqual(heap.extractMin().?, 22);
+    try testing.expectEqual(heap.extractMin(), null);
 }
 
 const Coord = struct {
@@ -187,15 +189,15 @@ fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
 
 test "With custom struct" {
     var heap = try BinaryHeap(fScoreEntry).initCapacity(testing.allocator, 5, fScoreLessThan);
-    defer heap.deinit();
+    defer heap.deinit(testing.allocator);
 
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 10 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 5 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 20 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 25 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 12 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 8 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 10 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 5 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 20 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 25 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 12 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 8 });
 
-    try testing.expect(heap.extractMin().?.score == 5);
-    try testing.expect(heap.extractMin().?.score == 8);
+    try testing.expectEqual(heap.extractMin().?.score, 5);
+    try testing.expectEqual(heap.extractMin().?.score, 8);
 }
