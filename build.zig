@@ -1,6 +1,11 @@
 const std = @import("std");
 const rlz = @import("raylib_zig");
 
+fn stringLessThan(context: void, str1: []const u8, str2: []const u8) bool {
+    _ = context;
+    return std.mem.lessThan(u8, str1, str2);
+}
+
 // This function is called from the build script to generate a zig file
 // containing a list of all the maze files in the resources directory.
 // TODO perhaps it should make a generated source folder and write it there?
@@ -38,19 +43,8 @@ fn generateMazeManifest() !void {
         }
     }
 
-    // Simple bubble sort to avoid compiler issues with std.mem.sort
-    // TODO use std.mem.sort
-    for (maze_files.items, 0..) |_, i| {
-        for (maze_files.items, 0..) |_, j| {
-            if (j > i) {
-                if (std.mem.lessThan(u8, maze_files.items[j], maze_files.items[i])) {
-                    const temp = maze_files.items[i];
-                    maze_files.items[i] = maze_files.items[j];
-                    maze_files.items[j] = temp;
-                }
-            }
-        }
-    }
+    // Sort the maze files alphabetically
+    std.mem.sort([]const u8, maze_files.items, {}, stringLessThan);
 
     for (maze_files.items) |maze_file| {
         try writer.interface.print("    \"{s}\",\n", .{maze_file});
