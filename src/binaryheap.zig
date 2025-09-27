@@ -111,18 +111,18 @@ fn i32LessThan(a: i32, b: i32) bool {
 }
 
 test "Basic" {
-    var heap = try BinaryHeap(i32).init(testing.allocator, 10, i32LessThan);
-    defer heap.deinit();
+    var heap = try BinaryHeap(i32).initCapacity(testing.allocator, 10, i32LessThan);
+    defer heap.deinit(testing.allocator);
 
-    try heap.insert(10);
-    try heap.insert(5);
-    try heap.insert(20);
-    try heap.insert(12);
-    try heap.insert(7);
-    try heap.insert(8);
-    try heap.insert(17);
-    try heap.insert(5);
-    try heap.insert(22);
+    try heap.insert(testing.allocator, 10);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 20);
+    try heap.insert(testing.allocator, 12);
+    try heap.insert(testing.allocator, 7);
+    try heap.insert(testing.allocator, 8);
+    try heap.insert(testing.allocator, 17);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 22);
 
     try testing.expect(heap.extractMin().? == 5);
     try testing.expect(heap.extractMin().? == 5);
@@ -135,9 +135,9 @@ test "Basic" {
     try testing.expect(heap.extractMin().? == 22);
     try testing.expect(heap.extractMin() == null);
 
-    try heap.insert(10);
-    try heap.insert(5);
-    try heap.insert(20);
+    try heap.insert(testing.allocator, 10);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 20);
 
     try testing.expect(heap.extractMin().? == 5);
     try testing.expect(heap.extractMin().? == 10);
@@ -146,18 +146,18 @@ test "Basic" {
 }
 
 test "Expand capacity" {
-    var heap = try BinaryHeap(i32).init(testing.allocator, 5, i32LessThan);
-    defer heap.deinit();
+    var heap = try BinaryHeap(i32).initCapacity(testing.allocator, 5, i32LessThan);
+    defer heap.deinit(testing.allocator, );
 
-    try heap.insert(10);
-    try heap.insert(5);
-    try heap.insert(20);
-    try heap.insert(12);
-    try heap.insert(7);
-    try heap.insert(8);
-    try heap.insert(17);
-    try heap.insert(5);
-    try heap.insert(22);
+    try heap.insert(testing.allocator, 10);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 20);
+    try heap.insert(testing.allocator, 12);
+    try heap.insert(testing.allocator, 7);
+    try heap.insert(testing.allocator, 8);
+    try heap.insert(testing.allocator, 17);
+    try heap.insert(testing.allocator, 5);
+    try heap.insert(testing.allocator, 22);
 
     try testing.expect(heap.extractMin().? == 5);
     try testing.expect(heap.extractMin().? == 5);
@@ -187,14 +187,14 @@ fn fScoreLessThan(a: fScoreEntry, b: fScoreEntry) bool {
 
 test "With custom struct" {
     var heap = try BinaryHeap(fScoreEntry).initCapacity(testing.allocator, 5, fScoreLessThan);
-    defer heap.deinit();
+    defer heap.deinit(testing.allocator);
 
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 10 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 5 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 20 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 25 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 12 });
-    try heap.insert(fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 8 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 10 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 5 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 20 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 25 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 12 });
+    try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 8 });
 
     try testing.expect(heap.extractMin().?.score == 5);
     try testing.expect(heap.extractMin().?.score == 8);

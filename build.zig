@@ -168,6 +168,31 @@ pub fn build(b: *std.Build) !void {
     test_exe.root_module.addImport("maze_manifest", maze_manifest_mod);
 
     const test_cmd = b.addRunArtifact(test_exe);
-    const test_step = b.step("test", "Run tests");
+
+    // Separate tests for queue.zig (no external dependencies)
+    const queue_test_module = b.createModule(.{
+        .root_source_file = b.path("src/queue.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const queue_test_exe = b.addTest(.{
+        .root_module = queue_test_module,
+    });
+    const queue_test_cmd = b.addRunArtifact(queue_test_exe);
+
+    // Separate tests for binaryheap.zig (no external dependencies)
+    const binaryheap_test_module = b.createModule(.{
+        .root_source_file = b.path("src/binaryheap.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const binaryheap_test_exe = b.addTest(.{
+        .root_module = binaryheap_test_module,
+    });
+    const binaryheap_test_cmd = b.addRunArtifact(binaryheap_test_exe);
+
+    const test_step = b.step("test", "Run all tests");
     test_step.dependOn(&test_cmd.step);
+    test_step.dependOn(&queue_test_cmd.step);
+    test_step.dependOn(&binaryheap_test_cmd.step);
 }
