@@ -793,7 +793,7 @@ const testing = std.testing;
 test "AStar search" {
     const target = Coord{ .row = 0, .col = 0 };
     var ac = try AStarSearch.init(testing.allocator, target);
-    defer ac.deinit();
+    defer ac.deinit(testing.allocator);
 
     _ = try ac.add_candidate(testing.allocator, Coord{ .row = 0, .col = 1 }, null);
     _ = try ac.add_candidate(testing.allocator, Coord{ .row = 0, .col = 1 }, null);
