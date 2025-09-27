@@ -8,7 +8,7 @@ fn generateMazeManifest() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{.read = false, .truncate = true});
+    var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{ .read = false, .truncate = true });
     defer file.close();
 
     const BUFFER_SIZE: usize = 100 * 1024;
@@ -97,81 +97,56 @@ pub fn build(b: *std.Build) !void {
     root_module.addImport("BinaryHeap", binary_heap_mod);
     root_module.addImport("maze_manifest", maze_manifest_mod);
 
-    const exe = b.addExecutable(.{ .name = "zigpath", .root_module = root_module });
+    root_module.addImport("raylib", raylib);
 
-    exe.linkLibrary(raylib_artifact);
-    exe.root_module.addImport("raylib", raylib);
-
-    const run_cmd = b.addRunArtifact(exe);
-    const run_step = b.step("run", "Run Project");
-    run_step.dependOn(&run_cmd.step);
-
-    b.installArtifact(exe);
-
-    // Web exports are completely separate
     if (target.query.os_tag == .emscripten) {
-        const emsdk = rlz.emsdk;
+        // Web build
         const name = "zigpath";
         const wasm = b.addLibrary(.{
             .name = name,
             .root_module = root_module,
         });
-
         wasm.linkLibrary(raylib_artifact);
 
         const install_dir: std.Build.InstallDir = .{ .custom = "web" };
+        const emcc_flags = rlz.emsdk.emccDefaultFlags(b.allocator, .{
+            .optimize = optimize,
+            .asyncify = false,
+        });
+        const emcc_settings = rlz.emsdk.emccDefaultSettings(b.allocator, .{
+            .optimize = optimize,
+        });
+        const emcc_step = rlz.emsdk.emccStep(b, raylib_artifact, wasm, .{
+            .optimize = optimize,
+            .flags = emcc_flags,
+            .settings = emcc_settings,
+            .install_dir = install_dir,
+            .embed_paths = &.{.{ .src_path = "resources/" }},
+        });
 
-        const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{
-                .optimize = optimize,
-                .asyncify = false,
-            });
-        const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{
-                .optimize = optimize,
-            });
-
-        const emcc_step = emsdk.emccStep(b, raylib_artifact, wasm, .{
-                .optimize = optimize,
-                .flags = emcc_flags,
-                .settings = emcc_settings,
-                .install_dir = install_dir,
-                .embed_paths = &.{.{ .src_path = "resources/" }},
-            });
+        // Make the default build step create the web files
+        b.getInstallStep().dependOn(emcc_step);
 
         const html_filename = "index.html";
-
-        const emrun_step = emsdk.emrunStep(
+        const emrun_step = rlz.emsdk.emrunStep(
             b,
             b.getInstallPath(install_dir, html_filename),
             &.{},
         );
         emrun_step.dependOn(emcc_step);
 
-        const run_option = b.step(name, name);
-        run_option.dependOn(emrun_step);
-        run_step.dependOn(emcc_step);
+        const wasm_run_step = b.step("run", "Run the web project");
+        wasm_run_step.dependOn(emrun_step);
+    } else {
+        // Native build
+        const exe = b.addExecutable(.{ .name = "zigpath", .root_module = root_module });
+        exe.linkLibrary(raylib_artifact);
 
-        // const exe_lib = try rlz.emcc.compileForEmscripten(b, "Project", "src/main.zig", target, optimize);
-        // exe_lib.linkLibrary(raylib_artifact);
-        // exe_lib.root_module.addImport("raylib", raylib);
-        // // Add queue and BinaryHeap modules for Emscripten
-        // exe_lib.root_module.addImport("queue", queue_mod);
-        // exe_lib.root_module.addImport("BinaryHeap", binary_heap_mod);
-        // exe_lib.root_module.addImport("maze_manifest", maze_manifest_mod);
+        b.installArtifact(exe);
 
-        // // Note that raylib itself is not actually added to the exe_lib output file, so it also needs to be linked with emscripten.
-        // const link_step = try rlz.emcc.linkWithEmscripten(b, &[_]*std.Build.Step.Compile{ exe_lib, raylib_artifact });
-        // // This lets your program access files like "resources/my-image.png":
-        // link_step.addArg("--embed-file");
-        // link_step.addArg("resources/");
-        // link_step.addArg("-sINITIAL_MEMORY=64MB");
-        // link_step.addArg("-sALLOW_MEMORY_GROWTH=1");
-
-        // b.getInstallStep().dependOn(&link_step.step);
-        // const run_step = try rlz.emcc.emscriptenRunStep(b);
-        // run_step.step.dependOn(&link_step.step);
-        // const run_option = b.step("run", "Run Project");
-        // run_option.dependOn(&run_step.step);
-        return;
+        const run_cmd = b.addRunArtifact(exe);
+        const run_step = b.step("run", "Run Project");
+        run_step.dependOn(&run_cmd.step);
     }
 
     // Add a test step
