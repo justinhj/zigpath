@@ -3,6 +3,7 @@ const rlz = @import("raylib_zig");
 
 // This function is called from the build script to generate a zig file
 // containing a list of all the maze files in the resources directory.
+// TODO perhaps it should make a generated source folder and write it there?
 fn generateMazeManifest() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -11,7 +12,7 @@ fn generateMazeManifest() !void {
     var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{ .read = false, .truncate = true });
     defer file.close();
 
-    const BUFFER_SIZE: usize = 100 * 1024;
+    const BUFFER_SIZE: usize = 10 * 1024;
     var writeBuffer: [BUFFER_SIZE]u8 = undefined;
     var writer = file.writer(&writeBuffer);
 
@@ -38,6 +39,7 @@ fn generateMazeManifest() !void {
     }
 
     // Simple bubble sort to avoid compiler issues with std.mem.sort
+    // TODO use std.mem.sort
     for (maze_files.items, 0..) |_, i| {
         for (maze_files.items, 0..) |_, j| {
             if (j > i) {
@@ -96,7 +98,6 @@ pub fn build(b: *std.Build) !void {
     root_module.addImport("queue", queue_mod);
     root_module.addImport("BinaryHeap", binary_heap_mod);
     root_module.addImport("maze_manifest", maze_manifest_mod);
-
     root_module.addImport("raylib", raylib);
 
     if (target.query.os_tag == .emscripten) {

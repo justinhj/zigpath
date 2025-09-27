@@ -10,3 +10,4 @@
 6. Dijkstra (?)
 7. ~Add to web using emscripten.~
 8. Write generated code to a generated code folder
+9. ~Update to latest Zig version. (0.15.1)~

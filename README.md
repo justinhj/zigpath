@@ -26,9 +26,8 @@ You can try it in your browser at [https://heyes-jones.com/zigpath/index.html](h
 
 ## Requirements
 
-- **Zig**: Ensure you have Zig installed on your system. You can download it from [ziglang.org](https://ziglang.org/). It must be version 0.14.0 or later.
+- **Zig**: Ensure you have Zig installed on your system. You can download it from [ziglang.org](https://ziglang.org/). It must be version 0.15.1 or later compatible version.
 - **Raylib**: The application uses Raylib for rendering. It will be downloaded and built as part of the Zig build process.
-- **Emscripten**: For building the WebAssembly version, you need the Emscripten SDK. Follow the instructions at [Emscripten](https://emscripten.org/docs/getting_started/downloads.html). **3.1.50 is required**.
 
 ## Installation
 
@@ -55,21 +54,18 @@ See [Usage](#usage).
 To build the wasm/Emscripten version, ensure you have the Emscripten SDK installed. You can follow the instructions at [Emscripten](https://emscripten.org/docs/getting_started/downloads.html).
 
 ``` sh
-zig build -Dtarget=wasm32-emscripten -Doptimize=ReleaseSmall --sysroot ${EMSDK}/upstream/emscripten
+# Simply build
+zig build -Dtarget=wasm32-emscripten -Doptimize=ReleaseSmall
+# To also run in the browser
+zig build -Dtarget=wasm32-emscripten -Doptimize=ReleaseSmall run
 ```
 
 ## Usage
 
-### Command Line Arguments
-
-The application requires the following command line argument(s):
-
-- `<file_path>`: Path to the maze file.
-
-### Example
-
-```sh
-./zig-out/bin/zigpath ./resources/maze5
+``` sh
+zig build run
+# Or
+zig build -Doptimize=ReleaseFast run
 ```
 
 ## Maze File Format
