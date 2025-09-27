@@ -124,30 +124,32 @@ test "Basic" {
     try heap.insert(testing.allocator, 5);
     try heap.insert(testing.allocator, 22);
 
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 7);
-    try testing.expect(heap.extractMin().? == 8);
-    try testing.expect(heap.extractMin().? == 10);
-    try testing.expect(heap.extractMin().? == 12);
-    try testing.expect(heap.extractMin().? == 17);
-    try testing.expect(heap.extractMin().? == 20);
-    try testing.expect(heap.extractMin().? == 22);
-    try testing.expect(heap.extractMin() == null);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 7);
+    try testing.expectEqual(heap.extractMin().?, 8);
+    try testing.expectEqual(heap.extractMin().?, 10);
+    try testing.expectEqual(heap.extractMin().?, 12);
+    try testing.expectEqual(heap.extractMin().?, 17);
+    try testing.expectEqual(heap.extractMin().?, 20);
+    try testing.expectEqual(heap.extractMin().?, 22);
+    try testing.expectEqual(heap.extractMin(), null);
 
     try heap.insert(testing.allocator, 10);
     try heap.insert(testing.allocator, 5);
     try heap.insert(testing.allocator, 20);
 
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 10);
-    try testing.expect(heap.extractMin().? == 20);
-    try testing.expect(heap.extractMin() == null);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 10);
+    try testing.expectEqual(heap.extractMin().?, 20);
+    try testing.expectEqual(heap.extractMin(), null);
 }
 
 test "Expand capacity" {
     var heap = try BinaryHeap(i32).initCapacity(testing.allocator, 5, i32LessThan);
-    defer heap.deinit(testing.allocator, );
+    defer heap.deinit(
+        testing.allocator,
+    );
 
     try heap.insert(testing.allocator, 10);
     try heap.insert(testing.allocator, 5);
@@ -159,16 +161,16 @@ test "Expand capacity" {
     try heap.insert(testing.allocator, 5);
     try heap.insert(testing.allocator, 22);
 
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 5);
-    try testing.expect(heap.extractMin().? == 7);
-    try testing.expect(heap.extractMin().? == 8);
-    try testing.expect(heap.extractMin().? == 10);
-    try testing.expect(heap.extractMin().? == 12);
-    try testing.expect(heap.extractMin().? == 17);
-    try testing.expect(heap.extractMin().? == 20);
-    try testing.expect(heap.extractMin().? == 22);
-    try testing.expect(heap.extractMin() == null);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 5);
+    try testing.expectEqual(heap.extractMin().?, 7);
+    try testing.expectEqual(heap.extractMin().?, 8);
+    try testing.expectEqual(heap.extractMin().?, 10);
+    try testing.expectEqual(heap.extractMin().?, 12);
+    try testing.expectEqual(heap.extractMin().?, 17);
+    try testing.expectEqual(heap.extractMin().?, 20);
+    try testing.expectEqual(heap.extractMin().?, 22);
+    try testing.expectEqual(heap.extractMin(), null);
 }
 
 const Coord = struct {
@@ -196,6 +198,6 @@ test "With custom struct" {
     try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 12 });
     try heap.insert(testing.allocator, fScoreEntry{ .coord = Coord{ .row = 0, .col = 0 }, .score = 8 });
 
-    try testing.expect(heap.extractMin().?.score == 5);
-    try testing.expect(heap.extractMin().?.score == 8);
+    try testing.expectEqual(heap.extractMin().?.score, 5);
+    try testing.expectEqual(heap.extractMin().?.score, 8);
 }
