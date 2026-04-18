@@ -23,7 +23,7 @@ fn generateMazeManifest() !void {
 
     _ = try writer.interface.writeAll("pub const maze_files = &[_][]const u8{\n");
 
-    var dir = try std.fs.cwd().openDir("resources", .{});
+    var dir = try std.fs.cwd().openDir("resources", .{ .iterate = true });
     defer dir.close();
 
     var maze_files = std.array_list.Managed([]const u8).init(allocator);
