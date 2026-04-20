@@ -3,3 +3,4 @@ zig-out/
 .DS_Store
 .vscode/
 src/maze_manifest.zig
+zig-pkg/
