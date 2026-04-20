@@ -9,22 +9,23 @@ fn stringLessThan(context: void, str1: []const u8, str2: []const u8) bool {
 // This function is called from the build script to generate a zig file
 // containing a list of all the maze files in the resources directory.
 // TODO perhaps it should make a generated source folder and write it there?
-fn generateMazeManifest() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+fn generateMazeManifest(io: std.Io) !void {
+    var gpa = std.heap.DebugAllocator(.{}){};       // GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    var file = try std.fs.cwd().createFile("src/maze_manifest.zig", .{ .read = false, .truncate = true });
-    defer file.close();
+    const cd = std.Io.Dir.cwd();
+    var file = try cd.createFile(io, "src/maze_manifest.zig", .{ .read = false, .truncate = true });
+    defer file.close(io);
 
     const BUFFER_SIZE: usize = 10 * 1024;
     var writeBuffer: [BUFFER_SIZE]u8 = undefined;
-    var writer = file.writer(&writeBuffer);
+    var writer = file.writer(io, &writeBuffer);
 
     _ = try writer.interface.writeAll("pub const maze_files = &[_][]const u8{\n");
 
-    var dir = try std.fs.cwd().openDir("resources", .{ .iterate = true });
-    defer dir.close();
+    var dir = try cd.openDir(io, "resources", .{ .iterate = true });
+    defer dir.close(io);
 
     var maze_files = std.array_list.Managed([]const u8).init(allocator);
     defer {
@@ -35,7 +36,7 @@ fn generateMazeManifest() !void {
     }
 
     var it = dir.iterate();
-    while (try it.next()) |entry| {
+    while (try it.next(io)) |entry| {
         if (entry.kind == .file) {
             if (!std.mem.endsWith(u8, entry.name, ".otf")) {
                 try maze_files.append(try allocator.dupe(u8, entry.name));
@@ -55,8 +56,10 @@ fn generateMazeManifest() !void {
 }
 
 pub fn build(b: *std.Build) !void {
+    const io = b.graph.io;
+
     // Generate the maze manifest file before building the project.
-    generateMazeManifest() catch |err| {
+    generateMazeManifest(io) catch |err| {
         std.debug.print("Failed to generate maze manifest: {any}\n", .{err});
         return;
     };
