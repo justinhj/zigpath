@@ -100,7 +100,7 @@ pub fn build(b: *std.Build) !void {
             .name = name,
             .root_module = root_module,
         });
-        wasm.linkLibrary(raylib_artifact);
+        // wasm.linkLibrary(raylib_artifact);
 
         const install_dir: std.Build.InstallDir = .{ .custom = "web" };
         const emcc_flags = rlz.emsdk.emccDefaultFlags(b.allocator, .{
@@ -134,7 +134,7 @@ pub fn build(b: *std.Build) !void {
     } else {
         // Native build
         const exe = b.addExecutable(.{ .name = "zigpath", .root_module = root_module });
-        exe.linkLibrary(raylib_artifact);
+        // exe.linkLibrary(raylib_artifact);
 
         b.installArtifact(exe);
 

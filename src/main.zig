@@ -91,7 +91,7 @@ const AStarSearch = struct {
         const os = std.AutoHashMap(Coord, bool).init(allocator);
         const cs = std.AutoHashMap(Coord, bool).init(allocator);
         const gs = std.AutoHashMap(Coord, i32).init(allocator);
-        const fs = PQ.init(allocator, {});
+        const fs = PQ.initContext({});
 
         return AStarSearch{
             .openSet = os,
@@ -103,11 +103,10 @@ const AStarSearch = struct {
     }
 
     fn deinit(self: *Self, allocator: std.mem.Allocator) void {
-        _ = allocator;
         self.openSet.deinit();
         self.closedSet.deinit();
         self.gScore.deinit();
-        self.fScore.deinit();
+        self.fScore.deinit(allocator);
     }
 
     fn manhattanDistance(self: *Self, a: Coord, b: Coord) i32 {
@@ -121,7 +120,6 @@ const AStarSearch = struct {
     // the code returns true if it should be updated (a new best node) or false
     // otherwise.
     fn add_candidate(self: *Self, allocator: std.mem.Allocator, candidate: Coord, from: ?Coord) MazeErrorSet!bool {
-        _ = allocator;
         if (self.closedSet.contains(candidate)) {
             return false;
         }
@@ -139,13 +137,13 @@ const AStarSearch = struct {
         }
         _ = try self.gScore.put(candidate, tentativeGScore);
         const fScore = tentativeGScore + self.manhattanDistance(candidate, self.target);
-        _ = try self.fScore.add(fScoreEntry{ .coord = candidate, .score = fScore });
+        _ = try self.fScore.push(allocator, fScoreEntry{ .coord = candidate, .score = fScore });
         return true;
     }
 
     fn get_candidate(self: *AStarSearch) MazeErrorSet!?Coord {
         if (self.openSet.count() > 0) {
-            const bestFScore = self.fScore.removeOrNull();
+            const bestFScore = self.fScore.pop();
             if (bestFScore) |entry| {
                 _ = self.openSet.remove(entry.coord);
                 _ = try self.closedSet.put(entry.coord, true);
@@ -173,14 +171,17 @@ const SearchCandidates = union(enum) {
     }
 };
 
-fn loadFileToString(allocator: std.mem.Allocator, file_path: []const u8) ![]u8 {
-    const file = try std.fs.cwd().openFile(file_path, .{});
-    defer file.close();
+fn loadFileToString(allocator: std.mem.Allocator, io: std.Io, file_path: []const u8) ![]u8 {
+    const cd = std.Io.Dir.cwd();
+    const file = try cd.openFile(io, file_path, .{});
+    defer file.close(io);
 
     // Read the entire file into a string
-    const file_size = try file.getEndPos();
-    if (file_size > std.math.maxInt(usize)) return error.FileTooLarge;
-    const file_content = try file.readToEndAlloc(allocator, @intCast(file_size));
+    const file_size = try file.length(io);
+
+    var file_reader = file.reader(io, &.{});
+    const file_content = try file_reader.interface.allocRemaining(allocator, .limited(file_size));
+
     return file_content;
 }
 
@@ -214,7 +215,7 @@ fn parseMaze(allocator: std.mem.Allocator, input: []const u8) MazeErrorSet![][]b
     var row: usize = 0;
     while (lines.next()) |line| : (row += 1) {
         // Trim potential carriage return characters that might be left from Windows line endings (\r\n)
-        const cleaned_line = std.mem.trimRight(u8, line, "\r");
+        const cleaned_line = std.mem.trimEnd(u8, line, "\r");
         if (cleaned_line.len > 0) {
             for (cleaned_line, 0..) |char, col| {
                 grid[row][col] = switch (char) {
@@ -236,9 +237,9 @@ fn freeGrid(allocator: std.mem.Allocator, grid: [][]bool) void {
     allocator.free(grid);
 }
 
-pub fn loadMaze(allocator: std.mem.Allocator, file_path: []const u8) ![][]bool {
+pub fn loadMaze(allocator: std.mem.Allocator, io: std.Io, file_path: []const u8) ![][]bool {
     rl.traceLog(rl.TraceLogLevel.info, "loadMaze", .{});
-    const str = try loadFileToString(allocator, file_path);
+    const str = try loadFileToString(allocator, io, file_path);
     defer allocator.free(str);
     const grid = try parseMaze(allocator, str);
     return grid;
@@ -394,11 +395,11 @@ const defaultMaze: [*:0]const u8 =
     "#.........\n" ++
     "......#...\n";
 
-pub fn main() anyerror!void {
+pub fn main(init: std.process.Init) anyerror!void {
     const allocator = rl.mem;
+    const io = init.io;
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
 
     var file_path: []const u8 = undefined;
     if (args.len < 2) {
@@ -418,7 +419,7 @@ pub fn main() anyerror!void {
 
     // TODO better to load this to the heap perhaps
     var stdout_buffer: [1024 * 100]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    var stdout_writer = std.Io.File.stdout().writer(io, &stdout_buffer);
     const stdout = &stdout_writer.interface;
 
     // --- Raylib Window Initialization ---
@@ -517,7 +518,7 @@ pub fn main() anyerror!void {
                         }
 
                         // Load new maze and initialize all related data
-                        maze = try loadMaze(allocator, file_path);
+                        maze = try loadMaze(allocator, io, file_path);
                         visited = try makeVisited(allocator, maze);
 
                         switch (searchType) {
