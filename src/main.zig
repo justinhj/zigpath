@@ -176,11 +176,9 @@ fn loadFileToString(allocator: std.mem.Allocator, io: std.Io, file_path: []const
     const file = try cd.openFile(io, file_path, .{});
     defer file.close(io);
 
-    // Read the entire file into a string
     const file_size = try file.length(io);
-
     var file_reader = file.reader(io, &.{});
-    const file_content = try file_reader.interface.allocRemaining(allocator, .limited(file_size));
+    const file_content = try file_reader.interface.allocRemaining(allocator, .limited(file_size + 1));
 
     return file_content;
 }
